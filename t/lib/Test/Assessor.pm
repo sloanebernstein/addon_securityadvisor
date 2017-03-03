@@ -39,6 +39,7 @@ sub new {
 
     my $self = bless {
         locale => Cpanel::Locale->get_handle(),
+        advice => [],
     }, $class;
 
     eval "require $module_name" or die $@;    ##no critic (ProhibitStringyEval) -- require $module_name; doesn't work for some reason.
