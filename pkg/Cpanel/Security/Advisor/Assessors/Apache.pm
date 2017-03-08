@@ -1,6 +1,6 @@
 package Cpanel::Security::Advisor::Assessors::Apache;
 
-# Copyright (c) 2016, cPanel, Inc.
+# Copyright (c) 2017, cPanel, Inc.
 # All rights reserved.
 # http://cpanel.net
 #
@@ -284,6 +284,7 @@ sub _cloudlinux_symlink_protection {
 
     my $is_ea4 = ( defined &Cpanel::Config::Httpd::is_ea4 && Cpanel::Config::Httpd::is_ea4() ) ? 1 : 0;
 
+  CHECK_IF_CAGEFS_IS_INSTALLED:
     if ( -x '/usr/sbin/cagefsctl' ) {
         my $uncaged_user_count = grep {
             !/^\d+ disabled/
@@ -293,6 +294,7 @@ sub _cloudlinux_symlink_protection {
               && !Cpanel::Validate::Username::reserved_username_check($_)
         } split( /\n/, Cpanel::SafeRun::Simple::saferun( '/usr/sbin/cagefsctl', '--list-disabled' ) );
 
+      CHECK_FOR_UNPROTECTED_USERS:    # Note: documentation on excluding users is at https://docs.cloudlinux.com/index.html?excluding_users.html
         if ( $uncaged_user_count > 0 ) {
             $security_advisor_obj->add_advice(
                 {
@@ -310,7 +312,8 @@ sub _cloudlinux_symlink_protection {
                 }
             );
         }
-        elsif ( !_is_cagefs_running() ) {
+      CHECK_IF_CAGEFS_IS_RUNNING:
+        if ( !_is_cagefs_running() ) {
             $security_advisor_obj->add_advice(
                 {
                     'key'        => 'Apache_cagefs_installed_but_not_running',
@@ -391,7 +394,7 @@ sub _is_cagefs_running {
     my $self = shift;
 
     if ( Cpanel::RestartSrv::has_service_via_systemd('cagefs') ) {
-        return ( Cpanel::SafeRun::Simple::saferun( '/usr/bin/systemctl', 'is-active', 'cagefs' ) eq 'active' ) ? 1 : 0;
+        return ( Cpanel::SafeRun::Simple::saferun( '/usr/bin/systemctl', 'is-active', 'cagefs' ) =~ /^active/ ) ? 1 : 0;
     }
     else {
         return ( Cpanel::SafeRun::Simple::saferun( '/etc/init.d/cagefs', 'status' ) =~ /running/ ) ? 1 : 0;
