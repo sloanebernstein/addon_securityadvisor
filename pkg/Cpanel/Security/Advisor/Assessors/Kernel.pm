@@ -1,9 +1,10 @@
 package Cpanel::Security::Advisor::Assessors::Kernel;
 
-# Copyright (c) 2014, cPanel, Inc.
-# All rights reserved.
-# http://cpanel.net
-#
+# cpanel - Cpanel/Security/Advisor/Assessors/Kernel.pl Copyright 2017 cPanel, Inc.
+#                                                             All rights Reserved.
+# copyright@cpanel.net                                           http://cpanel.net
+# This code is subject to the cPanel license. Unauthorized copying is prohibited
+
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
 #     * Redistributions of source code must retain the above copyright
@@ -29,20 +30,150 @@ package Cpanel::Security::Advisor::Assessors::Kernel;
 use strict;
 use base 'Cpanel::Security::Advisor::Assessors';
 use Cpanel::SafeRun::Errors ();
+use Cpanel::JSON            ();
 use Cpanel::Kernel          ();
 use Cpanel::OSSys::Env      ();
+use Cpanel::Version         ();
+use Cpanel::RPM             ();
+use Cpanel::Logger          ();
+use Cpanel::DIp::MainIP     ();
+use Cpanel::NAT             ();
+use Cpanel::HTTP::Client    ();
+
+our $VERIFY_SSL    = 1;
+our $KC_CP_VERSION = q{11.63};
+our $KC_VERIFY_URL = q{https://verify.cpanel.net};
+our $KC_M2_URL     = q{manage2.cpanel.net};
 
 my $kc_kernelversion = kcare_kernel_version("uname");
 
 sub version {
-    return '1.02';
+    return '1.03';
 }
 
 sub generate_advice {
     my ($self) = @_;
+
+    # support for integrated KerneCare purchase/install is supported in 11.64 and above
+    if ( Cpanel::Version::compare( Cpanel::Version::getversionnumber(), '>=', $KC_CP_VERSION ) ) {
+        $self->_suggest_kernelcare;
+    }
+
     $self->_check_for_kernel_version;
 
     return 1;
+}
+
+sub _suggest_kernelcare {
+    my ($self) = @_;
+
+    my $environment  = Cpanel::OSSys::Env::get_envtype();
+    my $manage2_data = _get_manage2_kernelcare_data();
+    my $rpm          = Cpanel::RPM->new();
+
+    if (    not $rpm->has_rpm(q{kernelcare})
+        and not( $environment eq 'virtuozzo' || $environment eq 'lxc' )
+        and not $manage2_data->{'disabled'} ) {
+
+        my $contact_method = '';
+        my $target         = '_parent';
+        my $url_to_use     = $self->base_path('scripts12/purchase_kernelcare_init');
+
+        # check to see this IP has a valid license even if it is not installed
+        if ( _verify_kernelcare_license() ) {
+            my $url_alt_text = 'Click to install';
+            $url_to_use = $self->base_path('scripts12/purchase_kernelcare_completion?order_status=success');
+
+            $self->add_bad_advice(
+                'key'        => 'Kernel_kernelcare_valid_license_but_not_installed',
+                'text'       => $self->_lh->maketext('Valid KernelCare License Found, but KernelCare is Not Installed.'),
+                'suggestion' => $self->_lh->maketext( 'KernelCare provides an easy and effortless way to ensure that your operating system uses the most up-to-date kernel without the need to reboot your server. [_1] [output,url,_2,_3,_4,_5].', $contact_method, $url_to_use, $url_alt_text, 'target', $target, ),
+            );
+        }
+        else {
+            my $url_alt_text = 'Upgrade to KernelCare';
+            if ( $manage2_data->{'url'} ne '' ) {
+                $url_to_use = $manage2_data->{'url'};
+            }
+            elsif ( $manage2_data->{'email'} ne '' ) {
+                $target         = '_blank';
+                $url_to_use     = 'mailto:' . $manage2_data->{'email'};
+                $contact_method = 'For more information,';
+                $url_alt_text   = 'email your provider';
+            }
+            $self->add_warn_advice(
+                'key'        => 'Kernel_kernelcare_purchase',
+                'text'       => $self->_lh->maketext('Upgrade to KernelCare.'),
+                'suggestion' => $self->_lh->maketext( 'KernelCare provides an easy and effortless way to ensure that your operating system uses the most up-to-date kernel without the need to reboot your server. [_1] [output,url,_2,_3,_4,_5].', $contact_method, $url_to_use, $url_alt_text, 'target', $target, ),
+            );
+
+        }
+    }
+
+    return 1;
+}
+
+sub _verify_kernelcare_license {
+    my $mainserverip = Cpanel::NAT::get_public_ip( Cpanel::DIp::MainIP::getmainserverip() );
+    my $verify_url = sprintf( "%s/ipaddrs.cgi?ip=%s", $KC_VERIFY_URL, $mainserverip );
+    my $verified;
+    local $@;
+    my $response = eval {
+        my $http = Cpanel::HTTP::Client->new( verify_SSL => $VERIFY_SSL )->die_on_http_error();
+        $http->get($verify_url);
+    };
+
+    # on error
+    return $verified if $@ or not $response;
+
+    my $results = Cpanel::JSON::Load( $response->{'content'} );
+
+    foreach my $current ( @{ $results->{'current'} } ) {
+        if ( $current->{'package'} eq q{CPDIRECT-MONTHLY-KERNELCARE} and $current->{'product'} eq q{KernelCare} and $current->{'status'} eq 1 and $current->{'valid'} eq 1 ) {
+            ++$verified;
+            last;
+        }
+    }
+    return $verified;
+}
+
+sub _get_manage2_kernelcare_data {
+    my $companyfile = q{/var/cpanel/companyid};
+    my $cid         = q{};
+    if ( open my $fh, "<", $companyfile ) {
+        $cid = <$fh>;
+        chomp $cid;
+        close $fh;
+    }
+
+    my $url = sprintf( 'https://%s/kernelcare.cgi?companyid=%d', $KC_M2_URL, $cid );
+    local $@;
+    my $raw_resp = eval {
+        my $http = Cpanel::HTTP::Client->new( verify_SSL => $VERIFY_SSL, timeout => 10 )->die_on_http_error();
+        $http->get($url);
+    };
+
+    # on error
+    return { disabled => 0, url => '', email => '' } if $@ or not $raw_resp;
+
+    my $json_resp;
+    if ( $raw_resp->{'success'} ) {
+        eval { $json_resp = Cpanel::JSON::Load( $raw_resp->{'content'} ) };
+
+        if ($@) {
+            $json_resp = { disabled => 0, url => '', email => '' };
+        }
+    }
+    else {
+        $json_resp = { disabled => 0, url => '', email => '' };
+    }
+
+    # These are useful for testing; uncomment as needed to force behavior.
+    # $json_resp = { disabled => 1, url => '', email => '' };
+    # $json_resp = { disabled => 0, url => 'http://tester.com', email => '' };
+    # $json_resp = { disabled => 0, url => '', email => 'test@tester.com' };
+
+    return $json_resp;
 }
 
 sub _check_for_kernel_version {
