@@ -1,10 +1,9 @@
 package Cpanel::Security::Advisor::Assessors::Kernel;
 
-# cpanel - Cpanel/Security/Advisor/Assessors/Kernel.pl Copyright 2017 cPanel, Inc.
-#                                                             All rights Reserved.
-# copyright@cpanel.net                                           http://cpanel.net
-# This code is subject to the cPanel license. Unauthorized copying is prohibited
-
+# Copyright (c) 2017, cPanel, Inc.
+# All rights reserved.
+# http://cpanel.net
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
 #     * Redistributions of source code must retain the above copyright
@@ -167,11 +166,6 @@ sub _get_manage2_kernelcare_data {
     else {
         $json_resp = { disabled => 0, url => '', email => '' };
     }
-
-    # These are useful for testing; uncomment as needed to force behavior.
-    # $json_resp = { disabled => 1, url => '', email => '' };
-    # $json_resp = { disabled => 0, url => 'http://tester.com', email => '' };
-    # $json_resp = { disabled => 0, url => '', email => 'test@tester.com' };
 
     return $json_resp;
 }
