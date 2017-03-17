@@ -38,6 +38,7 @@ use Cpanel::Logger          ();
 use Cpanel::DIp::MainIP     ();
 use Cpanel::NAT             ();
 use Cpanel::HTTP::Client    ();
+use Cpanel::GenSysInfo      ();
 
 our $VERIFY_SSL    = 1;
 our $KC_CP_VERSION = q{11.63};
@@ -67,11 +68,13 @@ sub _suggest_kernelcare {
     my ($self) = @_;
 
     my $environment  = Cpanel::OSSys::Env::get_envtype();
+    my $sysinfo      = Cpanel::GenSysInfo::run();
     my $manage2_data = _get_manage2_kernelcare_data();
     my $rpm          = Cpanel::RPM->new();
 
     if (    not $rpm->has_rpm(q{kernelcare})
         and not( $environment eq 'virtuozzo' || $environment eq 'lxc' )
+        and $sysinfo->{'rpm_dist'} ne 'amazon'
         and not $manage2_data->{'disabled'} ) {
 
         my $contact_method = '';
