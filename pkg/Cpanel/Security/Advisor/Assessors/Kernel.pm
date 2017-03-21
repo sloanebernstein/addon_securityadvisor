@@ -27,28 +27,25 @@ package Cpanel::Security::Advisor::Assessors::Kernel;
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use strict;
+use warnings;
 use base 'Cpanel::Security::Advisor::Assessors';
-use Cpanel::SafeRun::Errors ();
-use Cpanel::JSON            ();
-use Cpanel::Kernel          ();
-use Cpanel::OSSys::Env      ();
-use Cpanel::Version         ();
-use Cpanel::RPM             ();
-use Cpanel::Logger          ();
-use Cpanel::DIp::MainIP     ();
-use Cpanel::NAT             ();
-use Cpanel::HTTP::Client    ();
-use Cpanel::GenSysInfo      ();
+use Cpanel::JSON         ();
+use Cpanel::OSSys::Env   ();
+use Cpanel::Version      ();
+use Cpanel::RPM          ();
+use Cpanel::Logger       ();
+use Cpanel::DIp::MainIP  ();
+use Cpanel::NAT          ();
+use Cpanel::HTTP::Client ();
+use Cpanel::GenSysInfo   ();
 
 our $VERIFY_SSL    = 1;
 our $KC_CP_VERSION = q{11.63};
 our $KC_VERIFY_URL = q{https://verify.cpanel.net};
 our $KC_M2_URL     = q{manage2.cpanel.net};
 
-my $kc_kernelversion = kcare_kernel_version("uname");
-
 sub version {
-    return '1.03';
+    return '1.04';
 }
 
 sub generate_advice {
@@ -60,9 +57,13 @@ sub generate_advice {
     }
 
     if ( Cpanel::Version::compare( Cpanel::Version::getversionnumber(), '<', '11.65' ) ) {
+        require Cpanel::Kernel;
+        require Cpanel::SafeRun::Errors;
         $self->_check_for_kernel_version_on_a_cpanel_whm_system_at_v64_or_earlier;
     }
     else {
+        require Cpanel::Exception;
+        require Cpanel::Kernel::Status;
         $self->_check_for_kernel_version;
     }
 
@@ -192,38 +193,39 @@ sub _get_manage2_kernelcare_data {
 sub _check_for_kernel_version {
     my ($self) = @_;
 
-    my %kernel_update = kernel_updates();
-    my @kernel_update = ();
-    if ( ( keys %kernel_update ) ) {
-        foreach my $update ( keys %kernel_update ) {
-            unshift( @kernel_update, $kernel_update{$update} );
+    my $kernel = eval { Cpanel::Kernel::Status::kernel_status( updates => 1 ) };
+
+    if ( my $err = $@ ) {
+        if ( ref $err && $err->isa('Cpanel::Exception::Unsupported') ) {
+            $self->add_info_advice(
+                'key'  => 'Kernel_unsupported_environment',
+                'text' => $self->_lh->maketext('Kernel updates are not supported on this virtualization platform. Be sure to keep the host’s kernel up to date.'),
+            );
         }
+        else {
+            $self->add_warn_advice(
+                'key'  => 'Kernel_check_error',
+                'text' => $self->_lh->maketext( 'The system cannot check the kernel status: [_1]', Cpanel::Exception::get_string_no_id($err) ),
+            );
+        }
+        return;    # Further checks are impossible without data.
     }
 
-    my $boot_kernelversion    = Cpanel::Kernel::get_default_boot_version();
-    my $running_kernelversion = Cpanel::Kernel::get_running_version();
-    my $environment           = Cpanel::OSSys::Env::get_envtype();
-
-    if ( $running_kernelversion =~ m/\.(?:noarch|x86_64|i.86).+$/ ) {
+    if ( $kernel->{custom_kernel} ) {
         $self->add_info_advice(
             'key'  => 'Kernel_can_not_check',
-            'text' => $self->_lh->maketext( 'Custom kernel version cannot be checked to see if it is up to date: [_1]', $running_kernelversion )
+            'text' => $self->_lh->maketext( 'Custom kernel version cannot be checked to see if it is up to date: [_1]', $kernel->{running_version} )
         );
     }
-    elsif ( ( $environment eq 'virtuozzo' ) || ( $environment eq 'lxc' ) ) {
-        $self->add_info_advice(
-            'key'  => 'Kernel_unsupported_environment',
-            'text' => $self->_lh->maketext('Kernel updates are not supported on this virtualization platform. Be sure to keep the host’s kernel up to date.')
-        );
-    }
-    elsif ( (@kernel_update) && ($kc_kernelversion) ) {
-        if ( kcare_kernel_version("check") eq "New version available" ) {
+    elsif ( $kernel->{update_available} && !$kernel->{update_excluded} && $kernel->{has_kernelcare} ) {
+        my $VRA = "$kernel->{update_available}{version}-$kernel->{update_available}{release}.$kernel->{update_available}{arch}";
+        if ( $kernel->{patch_available} ) {
             $self->add_bad_advice(
                 'key'  => 'Kernel_kernelcare_update_available',
                 'text' => $self->_lh->maketext(
-                    'Kernel patched with KernelCare, but out of date. running kernel: [_1], most recent kernel: [list_and,_2]',
-                    $kc_kernelversion,
-                    \@kernel_update,
+                    'Kernel patched with KernelCare, but out of date. running kernel: [_1], most recent kernel: [_2]',
+                    $kernel->{running_version},
+                    $VRA,
                 ),
                 'suggestion' => $self->_lh->maketext('This can be resolved either by running ’/usr/bin/kcarectl --update’ from the command line to begin an update of the KernelCare kernel version, or by running ’yum update’ from the command line and rebooting the system.'),
             );
@@ -232,38 +234,39 @@ sub _check_for_kernel_version {
             $self->add_info_advice(
                 'key'  => 'Kernel_waiting_for_kernelcare_update',
                 'text' => $self->_lh->maketext(
-                    'Kernel patched with KernelCare, but awaiting further updates. running kernel: [_1], most recent kernel: [list_and,_2]',
-                    $kc_kernelversion,
-                    \@kernel_update,
+                    'Kernel patched with KernelCare, but awaiting further updates. running kernel: [_1], most recent kernel: [_2]',
+                    $kernel->{running_version},
+                    $VRA,
                 ),
                 'suggestion' => $self->_lh->maketext('The kernel will likely be patched to the current version within the next few days. If this delay is unacceptable, update the system’s software by running ’yum update’ from the command line and reboot the system.'),
             );
         }
     }
-    elsif ( (@kernel_update) ) {
+    elsif ( $kernel->{update_available} && !$kernel->{update_excluded} ) {
+        my $VRA = "$kernel->{update_available}{version}-$kernel->{update_available}{release}.$kernel->{update_available}{arch}";
         $self->add_bad_advice(
             'key'  => 'Kernel_outdated',
             'text' => $self->_lh->maketext(
-                'Current kernel version is out of date. running kernel: [_1], most recent kernel: [list_and,_2]',
-                $running_kernelversion,
-                \@kernel_update,
+                'Current kernel version is out of date. running kernel: [_1], most recent kernel: [_2]',
+                $kernel->{running_version},
+                $VRA,
             ),
             'suggestion' => $self->_lh->maketext('Update the system’s software by running ’yum update’ from the command line and reboot the system.'),
         );
     }
-    elsif ($kc_kernelversion) {
+    elsif ( $kernel->{has_kernelcare} ) {
         $self->add_good_advice(
             'key'  => 'Kernel_kernelcare_is_current',
-            'text' => $self->_lh->maketext( 'KernelCare is installed and current running kernel version is up to date: [_1]', $kc_kernelversion )
+            'text' => $self->_lh->maketext( 'KernelCare is installed and current running kernel version is up to date: [_1]', $kernel->{running_version} )
         );
     }
-    elsif ( ( $running_kernelversion ne $boot_kernelversion ) ) {
+    elsif ( $kernel->{reboot_required} ) {
         $self->add_bad_advice(
             'key'  => 'Kernel_boot_running_mismatch',
             'text' => $self->_lh->maketext(
                 'Current kernel version does not match the kernel version for boot. running kernel: [_1], boot kernel: [_2]',
-                $running_kernelversion,
-                $boot_kernelversion
+                $kernel->{running_version},
+                $kernel->{boot_version},
             ),
             'suggestion' => $self->_lh->maketext(
                 'Reboot the system in the "[output,url,_1,Graceful Server Reboot,_2,_3]" area. Check the boot configuration in grub.conf if the new kernel is not loaded after a reboot.',
@@ -276,7 +279,7 @@ sub _check_for_kernel_version {
     else {
         $self->add_good_advice(
             'key'  => 'Kernel_running_is_current',
-            'text' => $self->_lh->maketext( 'Current running kernel version is up to date: [_1]', $running_kernelversion )
+            'text' => $self->_lh->maketext( 'Current running kernel version is up to date: [_1]', $kernel->{running_version} )
         );
     }
 
@@ -288,6 +291,8 @@ sub _check_for_kernel_version {
 # Delete everything below here when v64 goes EOL. #
 #                                                 #
 ###################################################
+
+my $kc_kernelversion = kcare_kernel_version("uname");
 
 sub _check_for_kernel_version_on_a_cpanel_whm_system_at_v64_or_earlier {
     my ($self) = @_;
@@ -430,5 +435,3 @@ sub kcare_kernel_version {
 ########################################
 
 1;
-
-__END__
