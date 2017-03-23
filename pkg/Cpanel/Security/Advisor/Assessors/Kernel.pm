@@ -273,7 +273,7 @@ sub _check_standard_kernel {
 sub _check_kernelcare_kernel {
     my ( $self, $kernel ) = @_;
 
-    if ( $kernel->{update_available} && !$kernel->{update_excluded} && $kernel->{patch_available} ) {
+    if ( $kernel->{patch_available} ) {
         $self->add_bad_advice(
             'key'        => 'Kernel_kernelcare_update_available',
             'text'       => $self->_lh->maketext('A [asis,KernelCare] update is available.'),
@@ -283,7 +283,7 @@ sub _check_kernelcare_kernel {
                     'Patch the kernel (run “[_1]” on the command line).',
                     'kcarectl --update',
                 ),
-                _msg_update_and_reboot($self),    # TODO: Check reboot_required before recommending.
+                _msg_update_and_reboot($self),    # TODO: Check update_available and reboot_required before recommending.
             ),
         );
     }
