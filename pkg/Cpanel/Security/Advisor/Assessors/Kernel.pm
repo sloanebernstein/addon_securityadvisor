@@ -217,32 +217,20 @@ sub _check_for_kernel_version {
             'text' => $self->_lh->maketext( 'Custom kernel version cannot be checked to see if it is up to date: [_1]', $kernel->{running_version} )
         );
     }
-    elsif ( $kernel->{update_available} && !$kernel->{update_excluded} && $kernel->{has_kernelcare} ) {
-        my $VRA = "$kernel->{update_available}{version}-$kernel->{update_available}{release}.$kernel->{update_available}{arch}";
-        if ( $kernel->{patch_available} ) {
-            $self->add_bad_advice(
-                'key'  => 'Kernel_kernelcare_update_available',
-                'text' => $self->_lh->maketext(
-                    'Kernel patched with KernelCare, but out of date. running kernel: [_1], most recent kernel: [_2]',
-                    $kernel->{running_version},
-                    $VRA,
-                ),
-                'suggestion' => $self->_lh->maketext('This can be resolved either by running ’/usr/bin/kcarectl --update’ from the command line to begin an update of the KernelCare kernel version, or by running ’yum update’ from the command line and rebooting the system.'),
-            );
-        }
-        else {
-            $self->add_info_advice(
-                'key'  => 'Kernel_waiting_for_kernelcare_update',
-                'text' => $self->_lh->maketext(
-                    'Kernel patched with KernelCare, but awaiting further updates. running kernel: [_1], most recent kernel: [_2]',
-                    $kernel->{running_version},
-                    $VRA,
-                ),
-                'suggestion' => $self->_lh->maketext('The kernel will likely be patched to the current version within the next few days. If this delay is unacceptable, update the system’s software by running ’yum update’ from the command line and reboot the system.'),
-            );
-        }
+    elsif ( !$kernel->{has_kernelcare} ) {
+        $self->_check_standard_kernel($kernel);
     }
-    elsif ( $kernel->{update_available} && !$kernel->{update_excluded} ) {
+    else {
+        $self->_check_kernelcare_kernel($kernel);
+    }
+
+    return 1;
+}
+
+sub _check_standard_kernel {
+    my ( $self, $kernel ) = @_;
+
+    if ( $kernel->{update_available} && !$kernel->{update_excluded} ) {
         my $VRA = "$kernel->{update_available}{version}-$kernel->{update_available}{release}.$kernel->{update_available}{arch}";
         $self->add_bad_advice(
             'key'  => 'Kernel_outdated',
@@ -252,12 +240,6 @@ sub _check_for_kernel_version {
                 $VRA,
             ),
             'suggestion' => $self->_lh->maketext('Update the system’s software by running ’yum update’ from the command line and reboot the system.'),
-        );
-    }
-    elsif ( $kernel->{has_kernelcare} ) {
-        $self->add_good_advice(
-            'key'  => 'Kernel_kernelcare_is_current',
-            'text' => $self->_lh->maketext( 'KernelCare is installed and current running kernel version is up to date: [_1]', $kernel->{running_version} )
         );
     }
     elsif ( $kernel->{reboot_required} ) {
@@ -282,8 +264,43 @@ sub _check_for_kernel_version {
             'text' => $self->_lh->maketext( 'Current running kernel version is up to date: [_1]', $kernel->{running_version} )
         );
     }
+    return;
+}
 
-    return 1;
+sub _check_kernelcare_kernel {
+    my ( $self, $kernel ) = @_;
+
+    if ( $kernel->{update_available} && !$kernel->{update_excluded} && $kernel->{patch_available} ) {
+        my $VRA = "$kernel->{update_available}{version}-$kernel->{update_available}{release}.$kernel->{update_available}{arch}";
+        $self->add_bad_advice(
+            'key'  => 'Kernel_kernelcare_update_available',
+            'text' => $self->_lh->maketext(
+                'Kernel patched with KernelCare, but out of date. running kernel: [_1], most recent kernel: [_2]',
+                $kernel->{running_version},
+                $VRA,
+            ),
+            'suggestion' => $self->_lh->maketext('This can be resolved either by running ’/usr/bin/kcarectl --update’ from the command line to begin an update of the KernelCare kernel version, or by running ’yum update’ from the command line and rebooting the system.'),
+        );
+    }
+    elsif ( $kernel->{update_available} && !$kernel->{update_excluded} ) {
+        my $VRA = "$kernel->{update_available}{version}-$kernel->{update_available}{release}.$kernel->{update_available}{arch}";
+        $self->add_info_advice(
+            'key'  => 'Kernel_waiting_for_kernelcare_update',
+            'text' => $self->_lh->maketext(
+                'Kernel patched with KernelCare, but awaiting further updates. running kernel: [_1], most recent kernel: [_2]',
+                $kernel->{running_version},
+                $VRA,
+            ),
+            'suggestion' => $self->_lh->maketext('The kernel will likely be patched to the current version within the next few days. If this delay is unacceptable, update the system’s software by running ’yum update’ from the command line and reboot the system.'),
+        );
+    }
+    else {
+        $self->add_good_advice(
+            'key'  => 'Kernel_kernelcare_is_current',
+            'text' => $self->_lh->maketext( 'KernelCare is installed and current running kernel version is up to date: [_1]', $kernel->{running_version} )
+        );
+    }
+    return;
 }
 
 ###################################################
