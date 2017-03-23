@@ -313,20 +313,36 @@ sub _check_kernelcare_kernel {
         );
     }
     elsif ( $kernel->{update_available} && !$kernel->{update_excluded} ) {
-        my $VRA = "$kernel->{update_available}{version}-$kernel->{update_available}{release}.$kernel->{update_available}{arch}";
-        $self->add_info_advice(
-            'key'  => 'Kernel_waiting_for_kernelcare_update',
-            'text' => $self->_lh->maketext(
-                'The system kernel is at version “[_1]”, but an update is available: [_2]',
-                $kernel->{running_version},
-                $VRA,
-            ),
-            'suggestion' => _make_unordered_list(
-                $self->_lh->maketext('You must take one of the following actions to ensure the system is up-to-date:'),
-                $self->_lh->maketext('Wait a few days for [asis,KernelCare] to publish a kernel patch.'),
-                _msg_update_and_reboot($self),
-            ),
-        );
+        if ( $kernel->{running_latest} ) {
+            $self->add_info_advice(
+                'key'  => 'Kernel_update_available',
+                'text' => $self->_lh->maketext(
+                    'The system kernel is up-to-date at version “[_1]”, thanks to [asis,KernelCare] patches.  However, on reboot, the system will briefly start with version “[_2]” before being patched again by [asis,KernelCare].',
+                    $kernel->{running_version},
+                    $kernel->{unpatched_version},
+                ),
+                'suggestion' => $self->_lh->maketext(
+                    'Install the latest “[_1]” [asis,RPM] package to immediately boot into the latest kernel.',
+                    'kernel',
+                ),
+            );
+        }
+        else {
+            my $VRA = "$kernel->{update_available}{version}-$kernel->{update_available}{release}.$kernel->{update_available}{arch}";
+            $self->add_info_advice(
+                'key'  => 'Kernel_waiting_for_kernelcare_update',
+                'text' => $self->_lh->maketext(
+                    'The system kernel is at version “[_1]”, but an update is available: [_2]',
+                    $kernel->{running_version},
+                    $VRA,
+                ),
+                'suggestion' => _make_unordered_list(
+                    $self->_lh->maketext('You must take one of the following actions to ensure the system is up-to-date:'),
+                    $self->_lh->maketext('Wait a few days for [asis,KernelCare] to publish a kernel patch.'),
+                    _msg_update_and_reboot($self),
+                ),
+            );
+        }
     }
     else {
         $self->add_good_advice(
