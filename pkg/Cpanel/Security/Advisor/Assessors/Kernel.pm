@@ -77,39 +77,49 @@ sub _suggest_kernelcare {
         and $sysinfo->{'rpm_dist'} ne 'amazon'
         and not $manage2_data->{'disabled'} ) {
 
-        my $contact_method = '';
-        my $target         = '_parent';
-        my $url_to_use     = $self->base_path('scripts12/purchase_kernelcare_init');
+        my $promotion = $self->_lh->maketext('KernelCare provides an easy and effortless way to ensure that your operating system uses the most up-to-date kernel without the need to reboot your server.');
 
         # check to see this IP has a valid license even if it is not installed
         if ( _verify_kernelcare_license() ) {
-            my $url_alt_text = 'Click to install';
-            $url_to_use = $self->base_path('scripts12/purchase_kernelcare_completion?order_status=success');
-
             $self->add_bad_advice(
                 'key'        => 'Kernel_kernelcare_valid_license_but_not_installed',
                 'text'       => $self->_lh->maketext('Valid KernelCare License Found, but KernelCare is Not Installed.'),
-                'suggestion' => $self->_lh->maketext( 'KernelCare provides an easy and effortless way to ensure that your operating system uses the most up-to-date kernel without the need to reboot your server. [_1] [output,url,_2,_3,_4,_5].', $contact_method, $url_to_use, $url_alt_text, 'target', $target, ),
+                'suggestion' => $promotion . ' ' . $self->_lh->maketext(
+                    '[output,url,_1,Click to install,_2,_3].',
+                    $self->base_path('scripts12/purchase_kernelcare_completion?order_status=success'),
+                    'target' => '_parent',
+                ),
             );
         }
         else {
-            my $url_alt_text = 'Upgrade to KernelCare';
+            my $suggestion = '';
             if ( $manage2_data->{'url'} ne '' ) {
-                $url_to_use = $manage2_data->{'url'};
+                $suggestion = $self->_lh->maketext(
+                    '[output,url,_1,Upgrade to KernelCare,_2,_3].',
+                    $manage2_data->{'url'},
+                    'target' => '_parent',
+                );
             }
             elsif ( $manage2_data->{'email'} ne '' ) {
-                $target         = '_blank';
-                $url_to_use     = 'mailto:' . $manage2_data->{'email'};
-                $contact_method = 'For more information,';
-                $url_alt_text   = 'email your provider';
+                $suggestion = $self->_lh->maketext(
+                    'For more information, [output,url,_1,email your provider,_2,_3].',
+                    'mailto:' . $manage2_data->{'email'},
+                    'target' => '_blank',
+                );
+            }
+            else {
+                $suggestion = $self->_lh->maketext(
+                    '[output,url,_1,Upgrade to KernelCare,_2,_3].',
+                    $self->base_path('scripts12/purchase_kernelcare_init'),
+                    'target' => '_parent',
+                );
             }
             $self->add_warn_advice(
                 'key'          => 'Kernel_kernelcare_purchase',
                 'block_notify' => 1,
                 'text'         => $self->_lh->maketext('Upgrade to KernelCare.'),
-                'suggestion'   => $self->_lh->maketext( 'KernelCare provides an easy and effortless way to ensure that your operating system uses the most up-to-date kernel without the need to reboot your server. [_1] [output,url,_2,_3,_4,_5].', $contact_method, $url_to_use, $url_alt_text, 'target', $target, ),
+                'suggestion'   => $promotion . ' ' . $suggestion,
             );
-
         }
     }
 
