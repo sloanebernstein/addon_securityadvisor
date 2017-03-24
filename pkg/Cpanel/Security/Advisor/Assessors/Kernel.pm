@@ -344,6 +344,25 @@ sub _check_kernelcare_kernel {
             );
         }
     }
+    elsif ( $kernel->{reboot_required} ) {
+        $self->add_info_advice(
+            'key'  => 'Kernel_waiting_for_kernelcare_update_2',
+            'text' => $self->_lh->maketext(
+                'The system kernel is at version “[_1]”, but is set to boot to version “[_2]”.',
+                $kernel->{running_version},
+                $kernel->{boot_version},
+            ),
+            'suggestion' => _make_unordered_list(
+                $self->_lh->maketext('You must take one of the following actions to ensure the system is up-to-date:'),
+                $self->_lh->maketext('Wait a few days for [asis,KernelCare] to publish a kernel patch.'),
+                $self->_lh->maketext(
+                    '[output,url,_1,Reboot the system,_2,_3].',
+                    $self->base_path('scripts/dialog?dialog=reboot'),
+                    'target' => '_blank',
+                ),
+            ),
+        );
+    }
     else {
         $self->add_good_advice(
             'key'  => 'Kernel_kernelcare_is_current',
