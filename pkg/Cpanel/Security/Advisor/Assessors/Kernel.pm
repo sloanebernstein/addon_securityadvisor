@@ -212,10 +212,7 @@ sub _check_for_kernel_version {
     }
 
     if ( $kernel->{custom_kernel} ) {
-        $self->add_info_advice(
-            'key'  => 'Kernel_can_not_check',
-            'text' => $self->_lh->maketext( 'Custom kernel version cannot be checked to see if it is up to date: [_1]', $kernel->{running_version} )
-        );
+        $self->_check_custom_kernel($kernel);
     }
     elsif ( !$kernel->{has_kernelcare} ) {
         $self->_check_standard_kernel($kernel);
@@ -225,6 +222,34 @@ sub _check_for_kernel_version {
     }
 
     return 1;
+}
+
+sub _check_custom_kernel {
+    my ( $self, $kernel ) = @_;
+
+    if ( $kernel->{reboot_required} ) {
+        $self->add_warn_advice(
+            'key'  => 'Kernel_boot_running_mismatch',
+            'text' => $self->_lh->maketext(
+                'The system kernel is at version “[_1]”, but the system is configured to boot version “[_2]”.',
+                $kernel->{running_version},
+                $kernel->{boot_version},
+            ),
+            'suggestion' => $self->_lh->maketext(
+                '[output,url,_1,Reboot the system,_2,_3]. If the problem persists, check the [asis,GRUB] boot configuration.',
+                $self->base_path('scripts/dialog?dialog=reboot'),
+                'target',
+                '_blank'
+            ),
+        );
+    }
+    else {
+        $self->add_info_advice(
+            'key'  => 'Kernel_can_not_check',
+            'text' => $self->_lh->maketext( 'Custom kernel version cannot be checked to see if it is up to date: [_1]', $kernel->{running_version} )
+        );
+    }
+    return;
 }
 
 sub _check_standard_kernel {
