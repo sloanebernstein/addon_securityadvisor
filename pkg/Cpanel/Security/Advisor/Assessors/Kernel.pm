@@ -199,7 +199,7 @@ sub _check_for_kernel_version {
         if ( ref $err && $err->isa('Cpanel::Exception::Unsupported') ) {
             $self->add_info_advice(
                 'key'  => 'Kernel_unsupported_environment',
-                'text' => $self->_lh->maketext('Kernel updates are not supported on this virtualization platform. Be sure to keep the host’s kernel up to date.'),
+                'text' => $self->_lh->maketext( 'The system cannot update the kernel: [_1]', Cpanel::Exception::get_string_no_id($err) ),
             );
         }
         else {
@@ -235,23 +235,23 @@ sub _check_standard_kernel {
         $self->add_bad_advice(
             'key'  => 'Kernel_outdated',
             'text' => $self->_lh->maketext(
-                'Current kernel version is out of date. running kernel: [_1], most recent kernel: [_2]',
+                'The system kernel is at version “[_1]”, but an update is available: [_2]',
                 $kernel->{running_version},
                 $VRA,
             ),
-            'suggestion' => $self->_lh->maketext('Update the system’s software by running ’yum update’ from the command line and reboot the system.'),
+            'suggestion' => _msg_update_and_reboot($self),
         );
     }
     elsif ( $kernel->{reboot_required} ) {
         $self->add_bad_advice(
             'key'  => 'Kernel_boot_running_mismatch',
             'text' => $self->_lh->maketext(
-                'Current kernel version does not match the kernel version for boot. running kernel: [_1], boot kernel: [_2]',
+                'The system kernel is at version “[_1]”, but the system is configured to boot version “[_2]”.',
                 $kernel->{running_version},
                 $kernel->{boot_version},
             ),
             'suggestion' => $self->_lh->maketext(
-                'Reboot the system in the "[output,url,_1,Graceful Server Reboot,_2,_3]" area. Check the boot configuration in grub.conf if the new kernel is not loaded after a reboot.',
+                '[output,url,_1,Reboot the system,_2,_3]. If the problem persists, check the [asis,GRUB] boot configuration.',
                 $self->base_path('scripts/dialog?dialog=reboot'),
                 'target',
                 '_blank'
@@ -261,7 +261,10 @@ sub _check_standard_kernel {
     else {
         $self->add_good_advice(
             'key'  => 'Kernel_running_is_current',
-            'text' => $self->_lh->maketext( 'Current running kernel version is up to date: [_1]', $kernel->{running_version} )
+            'text' => $self->_lh->maketext(
+                'The system kernel is up-to-date at version “[_1]”.',
+                $kernel->{running_version},
+            ),
         );
     }
     return;
@@ -271,15 +274,17 @@ sub _check_kernelcare_kernel {
     my ( $self, $kernel ) = @_;
 
     if ( $kernel->{update_available} && !$kernel->{update_excluded} && $kernel->{patch_available} ) {
-        my $VRA = "$kernel->{update_available}{version}-$kernel->{update_available}{release}.$kernel->{update_available}{arch}";
         $self->add_bad_advice(
-            'key'  => 'Kernel_kernelcare_update_available',
-            'text' => $self->_lh->maketext(
-                'Kernel patched with KernelCare, but out of date. running kernel: [_1], most recent kernel: [_2]',
-                $kernel->{running_version},
-                $VRA,
+            'key'        => 'Kernel_kernelcare_update_available',
+            'text'       => $self->_lh->maketext('A [asis,KernelCare] update is available.'),
+            'suggestion' => _make_unordered_list(
+                $self->_lh->maketext('You must take one of the following actions to ensure the system is up-to-date:'),
+                $self->_lh->maketext(
+                    'Patch the kernel (run “[_1]” on the command line).',
+                    'kcarectl --update',
+                ),
+                _msg_update_and_reboot($self),    # TODO: Check reboot_required before recommending.
             ),
-            'suggestion' => $self->_lh->maketext('This can be resolved either by running ’/usr/bin/kcarectl --update’ from the command line to begin an update of the KernelCare kernel version, or by running ’yum update’ from the command line and rebooting the system.'),
         );
     }
     elsif ( $kernel->{update_available} && !$kernel->{update_excluded} ) {
@@ -287,20 +292,51 @@ sub _check_kernelcare_kernel {
         $self->add_info_advice(
             'key'  => 'Kernel_waiting_for_kernelcare_update',
             'text' => $self->_lh->maketext(
-                'Kernel patched with KernelCare, but awaiting further updates. running kernel: [_1], most recent kernel: [_2]',
+                'The system kernel is at version “[_1]”, but an update is available: [_2]',
                 $kernel->{running_version},
                 $VRA,
             ),
-            'suggestion' => $self->_lh->maketext('The kernel will likely be patched to the current version within the next few days. If this delay is unacceptable, update the system’s software by running ’yum update’ from the command line and reboot the system.'),
+            'suggestion' => _make_unordered_list(
+                $self->_lh->maketext('You must take one of the following actions to ensure the system is up-to-date:'),
+                $self->_lh->maketext('Wait a few days for [asis,KernelCare] to publish a kernel patch.'),
+                _msg_update_and_reboot($self),
+            ),
         );
     }
     else {
         $self->add_good_advice(
             'key'  => 'Kernel_kernelcare_is_current',
-            'text' => $self->_lh->maketext( 'KernelCare is installed and current running kernel version is up to date: [_1]', $kernel->{running_version} )
+            'text' => $self->_lh->maketext(
+                'The system kernel is up-to-date at version “[_1]”.',
+                $kernel->{running_version},
+            ),
         );
     }
     return;
+}
+
+sub _msg_update_and_reboot {
+    my ($obj) = @_;
+    return $obj->_lh->maketext(
+        'Update the system (run “[_1]” on the command line), and [output,url,_2,reboot the system,_3,_4].',
+        'yum -y update',
+        $obj->base_path('scripts/dialog?dialog=reboot'),
+        'target' => '_blank',
+    );
+}
+
+# Do this to work around bad perltidy concatenation rules.
+sub _make_unordered_list {
+    my ( $title, @items ) = @_;
+
+    my $output = $title;
+    $output .= '<ul>';
+    foreach my $item (@items) {
+        $output .= "<li>$item</li>";
+    }
+    $output .= '</ul>';
+
+    return $output;
 }
 
 ###################################################
