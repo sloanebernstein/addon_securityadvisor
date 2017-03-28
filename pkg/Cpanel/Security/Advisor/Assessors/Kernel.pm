@@ -59,7 +59,12 @@ sub generate_advice {
         $self->_suggest_kernelcare;
     }
 
-    $self->_check_for_kernel_version;
+    if ( Cpanel::Version::compare( Cpanel::Version::getversionnumber(), '<', '11.65' ) ) {
+        $self->_check_for_kernel_version_on_a_cpanel_whm_system_at_v64_or_earlier;
+    }
+    else {
+        $self->_check_for_kernel_version;
+    }
 
     return 1;
 }
@@ -278,6 +283,106 @@ sub _check_for_kernel_version {
     return 1;
 }
 
+###################################################
+#                                                 #
+# Delete everything below here when v64 goes EOL. #
+#                                                 #
+###################################################
+
+sub _check_for_kernel_version_on_a_cpanel_whm_system_at_v64_or_earlier {
+    my ($self) = @_;
+
+    my %kernel_update = kernel_updates();
+    my @kernel_update = ();
+    if ( ( keys %kernel_update ) ) {
+        foreach my $update ( keys %kernel_update ) {
+            unshift( @kernel_update, $kernel_update{$update} );
+        }
+    }
+
+    my $boot_kernelversion    = Cpanel::Kernel::get_default_boot_version();
+    my $running_kernelversion = Cpanel::Kernel::get_running_version();
+    my $environment           = Cpanel::OSSys::Env::get_envtype();
+
+    if ( $running_kernelversion =~ m/\.(?:noarch|x86_64|i.86).+$/ ) {
+        $self->add_info_advice(
+            'key'  => 'Kernel_can_not_check',
+            'text' => $self->_lh->maketext( 'Custom kernel version cannot be checked to see if it is up to date: [_1]', $running_kernelversion )
+        );
+    }
+    elsif ( ( $environment eq 'virtuozzo' ) || ( $environment eq 'lxc' ) ) {
+        $self->add_info_advice(
+            'key'  => 'Kernel_unsupported_environment',
+            'text' => $self->_lh->maketext('Kernel updates are not supported on this virtualization platform. Be sure to keep the host’s kernel up to date.')
+        );
+    }
+    elsif ( (@kernel_update) && ($kc_kernelversion) ) {
+        if ( kcare_kernel_version("check") eq "New version available" ) {
+            $self->add_bad_advice(
+                'key'  => 'Kernel_kernelcare_update_available',
+                'text' => $self->_lh->maketext(
+                    'Kernel patched with KernelCare, but out of date. running kernel: [_1], most recent kernel: [list_and,_2]',
+                    $kc_kernelversion,
+                    \@kernel_update,
+                ),
+                'suggestion' => $self->_lh->maketext('This can be resolved either by running ’/usr/bin/kcarectl --update’ from the command line to begin an update of the KernelCare kernel version, or by running ’yum update’ from the command line and rebooting the system.'),
+            );
+        }
+        else {
+            $self->add_info_advice(
+                'key'  => 'Kernel_waiting_for_kernelcare_update',
+                'text' => $self->_lh->maketext(
+                    'Kernel patched with KernelCare, but awaiting further updates. running kernel: [_1], most recent kernel: [list_and,_2]',
+                    $kc_kernelversion,
+                    \@kernel_update,
+                ),
+                'suggestion' => $self->_lh->maketext('The kernel will likely be patched to the current version within the next few days. If this delay is unacceptable, update the system’s software by running ’yum update’ from the command line and reboot the system.'),
+            );
+        }
+    }
+    elsif ( (@kernel_update) ) {
+        $self->add_bad_advice(
+            'key'  => 'Kernel_outdated',
+            'text' => $self->_lh->maketext(
+                'Current kernel version is out of date. running kernel: [_1], most recent kernel: [list_and,_2]',
+                $running_kernelversion,
+                \@kernel_update,
+            ),
+            'suggestion' => $self->_lh->maketext('Update the system’s software by running ’yum update’ from the command line and reboot the system.'),
+        );
+    }
+    elsif ($kc_kernelversion) {
+        $self->add_good_advice(
+            'key'  => 'Kernel_kernelcare_is_current',
+            'text' => $self->_lh->maketext( 'KernelCare is installed and current running kernel version is up to date: [_1]', $kc_kernelversion )
+        );
+    }
+    elsif ( ( $running_kernelversion ne $boot_kernelversion ) ) {
+        $self->add_bad_advice(
+            'key'  => 'Kernel_boot_running_mismatch',
+            'text' => $self->_lh->maketext(
+                'Current kernel version does not match the kernel version for boot. running kernel: [_1], boot kernel: [_2]',
+                $running_kernelversion,
+                $boot_kernelversion
+            ),
+            'suggestion' => $self->_lh->maketext(
+                'Reboot the system in the "[output,url,_1,Graceful Server Reboot,_2,_3]" area. Check the boot configuration in grub.conf if the new kernel is not loaded after a reboot.',
+                $self->base_path('scripts/dialog?dialog=reboot'),
+                'target',
+                '_blank'
+            ),
+        );
+    }
+    else {
+        $self->add_good_advice(
+            'key'  => 'Kernel_running_is_current',
+            'text' => $self->_lh->maketext( 'Current running kernel version is up to date: [_1]', $running_kernelversion )
+        );
+    }
+
+    return 1;
+}
+
 sub kernel_updates {
     my %kernel_update;
     my @args         = qw(yum -d 0 info updates kernel);
@@ -317,6 +422,12 @@ sub kcare_kernel_version {
 
     return $kc_response;
 }
+
+########################################
+#                                      #
+# Delete above here when v64 goes EOL. #
+#                                      #
+########################################
 
 1;
 
