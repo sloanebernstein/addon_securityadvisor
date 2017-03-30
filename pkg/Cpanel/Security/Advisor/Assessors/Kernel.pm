@@ -39,11 +39,6 @@ use Cpanel::NAT          ();
 use Cpanel::HTTP::Client ();
 use Cpanel::GenSysInfo   ();
 
-our $VERIFY_SSL    = 1;
-our $KC_CP_VERSION = q{11.63};
-our $KC_VERIFY_URL = q{https://verify.cpanel.net};
-our $KC_M2_URL     = q{manage2.cpanel.net};
-
 sub version {
     return '1.04';
 }
@@ -52,8 +47,11 @@ sub generate_advice {
     my ($self) = @_;
 
     # support for integrated KerneCare purchase/install is supported in 11.64 and above
-    if ( Cpanel::Version::compare( Cpanel::Version::getversionnumber(), '>=', $KC_CP_VERSION ) ) {
+    if ( Cpanel::Version::compare( Cpanel::Version::getversionnumber(), '>=', '11.65' ) ) {
         $self->_suggest_kernelcare;
+    }
+    elsif ( Cpanel::Version::compare( Cpanel::Version::getversionnumber(), '>=', '11.63' ) ) {
+        $self->_suggest_kernelcare_on_a_cpanel_whm_system_at_v64;
     }
 
     if ( Cpanel::Version::compare( Cpanel::Version::getversionnumber(), '<', '11.65' ) ) {
@@ -130,64 +128,6 @@ sub _suggest_kernelcare {
     }
 
     return 1;
-}
-
-sub _verify_kernelcare_license {
-    my $mainserverip = Cpanel::NAT::get_public_ip( Cpanel::DIp::MainIP::getmainserverip() );
-    my $verify_url = sprintf( "%s/ipaddrs.cgi?ip=%s", $KC_VERIFY_URL, $mainserverip );
-    my $verified;
-    local $@;
-    my $response = eval {
-        my $http = Cpanel::HTTP::Client->new( verify_SSL => $VERIFY_SSL )->die_on_http_error();
-        $http->get($verify_url);
-    };
-
-    # on error
-    return $verified if $@ or not $response;
-
-    my $results = Cpanel::JSON::Load( $response->{'content'} );
-
-    foreach my $current ( @{ $results->{'current'} } ) {
-        if ( $current->{'package'} eq q{CPDIRECT-MONTHLY-KERNELCARE} and $current->{'product'} eq q{KernelCare} and $current->{'status'} eq 1 and $current->{'valid'} eq 1 ) {
-            ++$verified;
-            last;
-        }
-    }
-    return $verified;
-}
-
-sub _get_manage2_kernelcare_data {
-    my $companyfile = q{/var/cpanel/companyid};
-    my $cid         = q{};
-    if ( open my $fh, "<", $companyfile ) {
-        $cid = <$fh>;
-        chomp $cid;
-        close $fh;
-    }
-
-    my $url = sprintf( 'https://%s/kernelcare.cgi?companyid=%d', $KC_M2_URL, $cid );
-    local $@;
-    my $raw_resp = eval {
-        my $http = Cpanel::HTTP::Client->new( verify_SSL => $VERIFY_SSL, timeout => 10 )->die_on_http_error();
-        $http->get($url);
-    };
-
-    # on error
-    return { disabled => 0, url => '', email => '' } if $@ or not $raw_resp;
-
-    my $json_resp;
-    if ( $raw_resp->{'success'} ) {
-        eval { $json_resp = Cpanel::JSON::Load( $raw_resp->{'content'} ) };
-
-        if ($@) {
-            $json_resp = { disabled => 0, url => '', email => '' };
-        }
-    }
-    else {
-        $json_resp = { disabled => 0, url => '', email => '' };
-    }
-
-    return $json_resp;
 }
 
 sub _check_for_kernel_version {
@@ -405,7 +345,131 @@ sub _make_unordered_list {
 #                                                 #
 ###################################################
 
+our $VERIFY_SSL    = 1;
+our $KC_VERIFY_URL = q{https://verify.cpanel.net};
+our $KC_M2_URL     = q{manage2.cpanel.net};
+
 my $kc_kernelversion = kcare_kernel_version("uname");
+
+sub _suggest_kernelcare_on_a_cpanel_whm_system_at_v64 {
+    my ($self) = @_;
+
+    my $environment  = Cpanel::OSSys::Env::get_envtype();
+    my $sysinfo      = Cpanel::GenSysInfo::run();
+    my $manage2_data = _get_manage2_kernelcare_data();
+    my $rpm          = Cpanel::RPM->new();
+
+    if (    not $rpm->has_rpm(q{kernelcare})
+        and not( $environment eq 'virtuozzo' || $environment eq 'lxc' )
+        and $sysinfo->{'rpm_dist'} ne 'amazon'
+        and not $manage2_data->{'disabled'} ) {
+
+        my $promotion = $self->_lh->maketext('KernelCare provides an easy and effortless way to ensure that your operating system uses the most up-to-date kernel without the need to reboot your server.');
+
+        # check to see this IP has a valid license even if it is not installed
+        if ( _verify_kernelcare_license() ) {
+            $self->add_bad_advice(
+                'key'        => 'Kernel_kernelcare_valid_license_but_not_installed',
+                'text'       => $self->_lh->maketext('Valid KernelCare License Found, but KernelCare is Not Installed.'),
+                'suggestion' => $promotion . ' ' . $self->_lh->maketext(
+                    '[output,url,_1,Click to install,_2,_3].',
+                    $self->base_path('scripts12/purchase_kernelcare_completion?order_status=success'),
+                    'target' => '_parent',
+                ),
+            );
+        }
+        else {
+            my $suggestion = '';
+            if ( $manage2_data->{'url'} ne '' ) {
+                $suggestion = $self->_lh->maketext(
+                    '[output,url,_1,Upgrade to KernelCare,_2,_3].',
+                    $manage2_data->{'url'},
+                    'target' => '_parent',
+                );
+            }
+            elsif ( $manage2_data->{'email'} ne '' ) {
+                $suggestion = $self->_lh->maketext(
+                    'For more information, [output,url,_1,email your provider,_2,_3].',
+                    'mailto:' . $manage2_data->{'email'},
+                    'target' => '_blank',
+                );
+            }
+            else {
+                $suggestion = $self->_lh->maketext(
+                    '[output,url,_1,Upgrade to KernelCare,_2,_3].',
+                    $self->base_path('scripts12/purchase_kernelcare_init'),
+                    'target' => '_parent',
+                );
+            }
+            $self->add_warn_advice(
+                'key'          => 'Kernel_kernelcare_purchase',
+                'block_notify' => 1,
+                'text'         => $self->_lh->maketext('Upgrade to KernelCare.'),
+                'suggestion'   => $promotion . ' ' . $suggestion,
+            );
+        }
+    }
+
+    return 1;
+}
+
+sub _verify_kernelcare_license {
+    my $mainserverip = Cpanel::NAT::get_public_ip( Cpanel::DIp::MainIP::getmainserverip() );
+    my $verify_url = sprintf( "%s/ipaddrs.cgi?ip=%s", $KC_VERIFY_URL, $mainserverip );
+    my $verified;
+    local $@;
+    my $response = eval {
+        my $http = Cpanel::HTTP::Client->new( verify_SSL => $VERIFY_SSL )->die_on_http_error();
+        $http->get($verify_url);
+    };
+
+    # on error
+    return $verified if $@ or not $response;
+
+    my $results = Cpanel::JSON::Load( $response->{'content'} );
+
+    foreach my $current ( @{ $results->{'current'} } ) {
+        if ( $current->{'package'} eq q{CPDIRECT-MONTHLY-KERNELCARE} and $current->{'product'} eq q{KernelCare} and $current->{'status'} eq 1 and $current->{'valid'} eq 1 ) {
+            ++$verified;
+            last;
+        }
+    }
+    return $verified;
+}
+
+sub _get_manage2_kernelcare_data {
+    my $companyfile = q{/var/cpanel/companyid};
+    my $cid         = q{};
+    if ( open my $fh, "<", $companyfile ) {
+        $cid = <$fh>;
+        chomp $cid;
+        close $fh;
+    }
+
+    my $url = sprintf( 'https://%s/kernelcare.cgi?companyid=%d', $KC_M2_URL, $cid );
+    local $@;
+    my $raw_resp = eval {
+        my $http = Cpanel::HTTP::Client->new( verify_SSL => $VERIFY_SSL, timeout => 10 )->die_on_http_error();
+        $http->get($url);
+    };
+
+    # on error
+    return { disabled => 0, url => '', email => '' } if $@ or not $raw_resp;
+
+    my $json_resp;
+    if ( $raw_resp->{'success'} ) {
+        eval { $json_resp = Cpanel::JSON::Load( $raw_resp->{'content'} ) };
+
+        if ($@) {
+            $json_resp = { disabled => 0, url => '', email => '' };
+        }
+    }
+    else {
+        $json_resp = { disabled => 0, url => '', email => '' };
+    }
+
+    return $json_resp;
+}
 
 sub _check_for_kernel_version_on_a_cpanel_whm_system_at_v64_or_earlier {
     my ($self) = @_;
