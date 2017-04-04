@@ -29,18 +29,11 @@ package Cpanel::Security::Advisor::Assessors::Kernel;
 use strict;
 use warnings;
 use base 'Cpanel::Security::Advisor::Assessors';
-use Cpanel::JSON         ();
-use Cpanel::OSSys::Env   ();
-use Cpanel::Version      ();
-use Cpanel::RPM          ();
-use Cpanel::Logger       ();
-use Cpanel::DIp::MainIP  ();
-use Cpanel::NAT          ();
-use Cpanel::HTTP::Client ();
-use Cpanel::GenSysInfo   ();
+
+use Cpanel::Version ();
 
 sub version {
-    return '1.04';
+    return '1.05';
 }
 
 sub generate_advice {
@@ -48,14 +41,26 @@ sub generate_advice {
 
     # support for integrated KerneCare purchase/install is supported in 11.64 and above
     if ( Cpanel::Version::compare( Cpanel::Version::getversionnumber(), '>=', '11.65' ) ) {
+        require Cpanel::Exception;
+        require Cpanel::KernelCare;
+        require Cpanel::KernelCare::Availability;
         $self->_suggest_kernelcare;
     }
     elsif ( Cpanel::Version::compare( Cpanel::Version::getversionnumber(), '>=', '11.63' ) ) {
+        require Cpanel::DIp::MainIP;
+        require Cpanel::GenSysInfo;
+        require Cpanel::HTTP::Client;
+        require Cpanel::JSON;
+        require Cpanel::Logger;
+        require Cpanel::NAT;
+        require Cpanel::OSSys::Env;
+        require Cpanel::RPM;
         $self->_suggest_kernelcare_on_a_cpanel_whm_system_at_v64;
     }
 
     if ( Cpanel::Version::compare( Cpanel::Version::getversionnumber(), '<', '11.65' ) ) {
         require Cpanel::Kernel;
+        require Cpanel::OSSys::Env;
         require Cpanel::SafeRun::Errors;
         $self->_check_for_kernel_version_on_a_cpanel_whm_system_at_v64_or_earlier;
     }
@@ -71,60 +76,63 @@ sub generate_advice {
 sub _suggest_kernelcare {
     my ($self) = @_;
 
-    my $environment  = Cpanel::OSSys::Env::get_envtype();
-    my $sysinfo      = Cpanel::GenSysInfo::run();
-    my $manage2_data = _get_manage2_kernelcare_data();
-    my $rpm          = Cpanel::RPM->new();
+    # Abort if the system won't benefit from KernelCare.
+    return if Cpanel::KernelCare::system_has_kernelcare();
+    return if !Cpanel::KernelCare::system_supports_kernelcare();
 
-    if (    not $rpm->has_rpm(q{kernelcare})
-        and not( $environment eq 'virtuozzo' || $environment eq 'lxc' )
-        and $sysinfo->{'rpm_dist'} ne 'amazon'
-        and not $manage2_data->{'disabled'} ) {
+    my $advertising_preference = eval { Cpanel::KernelCare::Availability::get_company_advertising_preferences() };
+    if ($@) {
+        $advertising_preference = { disabled => 0, url => '', email => '' };
+    }
 
-        my $promotion = $self->_lh->maketext('KernelCare provides an easy and effortless way to ensure that your operating system uses the most up-to-date kernel without the need to reboot your server.');
+    # Abort if the customer requested we don't advertise.
+    return if $advertising_preference->{disabled};
 
-        # check to see this IP has a valid license even if it is not installed
-        if ( _verify_kernelcare_license() ) {
-            $self->add_bad_advice(
-                'key'        => 'Kernel_kernelcare_valid_license_but_not_installed',
-                'text'       => $self->_lh->maketext('Valid KernelCare License Found, but KernelCare is Not Installed.'),
-                'suggestion' => $promotion . ' ' . $self->_lh->maketext(
-                    '[output,url,_1,Click to install,_2,_3].',
-                    $self->base_path('scripts12/purchase_kernelcare_completion?order_status=success'),
-                    'target' => '_parent',
-                ),
+    my $promotion = $self->_lh->maketext('KernelCare provides an easy and effortless way to ensure that your operating system uses the most up-to-date kernel without the need to reboot your server.');
+
+    my $license = eval { Cpanel::KernelCare::Availability::system_license_from_cpanel() };
+
+    # check to see this IP has a valid license even if it is not installed
+    if ($license) {
+        $self->add_bad_advice(
+            'key'        => 'Kernel_kernelcare_valid_license_but_not_installed',
+            'text'       => $self->_lh->maketext('Valid KernelCare License Found, but KernelCare is Not Installed.'),
+            'suggestion' => $promotion . ' ' . $self->_lh->maketext(
+                '[output,url,_1,Click to install,_2,_3].',
+                $self->base_path('scripts12/purchase_kernelcare_completion?order_status=success'),
+                'target' => '_parent',
+            ),
+        );
+    }
+    else {
+        my $suggestion = '';
+        if ( $advertising_preference->{'url'} ) {
+            $suggestion = $self->_lh->maketext(
+                '[output,url,_1,Upgrade to KernelCare,_2,_3].',
+                $advertising_preference->{'url'},
+                'target' => '_parent',
+            );
+        }
+        elsif ( $advertising_preference->{'email'} ) {
+            $suggestion = $self->_lh->maketext(
+                'For more information, [output,url,_1,email your provider,_2,_3].',
+                'mailto:' . $advertising_preference->{'email'},
+                'target' => '_blank',
             );
         }
         else {
-            my $suggestion = '';
-            if ( $manage2_data->{'url'} ne '' ) {
-                $suggestion = $self->_lh->maketext(
-                    '[output,url,_1,Upgrade to KernelCare,_2,_3].',
-                    $manage2_data->{'url'},
-                    'target' => '_parent',
-                );
-            }
-            elsif ( $manage2_data->{'email'} ne '' ) {
-                $suggestion = $self->_lh->maketext(
-                    'For more information, [output,url,_1,email your provider,_2,_3].',
-                    'mailto:' . $manage2_data->{'email'},
-                    'target' => '_blank',
-                );
-            }
-            else {
-                $suggestion = $self->_lh->maketext(
-                    '[output,url,_1,Upgrade to KernelCare,_2,_3].',
-                    $self->base_path('scripts12/purchase_kernelcare_init'),
-                    'target' => '_parent',
-                );
-            }
-            $self->add_warn_advice(
-                'key'          => 'Kernel_kernelcare_purchase',
-                'block_notify' => 1,
-                'text'         => $self->_lh->maketext('Upgrade to KernelCare.'),
-                'suggestion'   => $promotion . ' ' . $suggestion,
+            $suggestion = $self->_lh->maketext(
+                '[output,url,_1,Upgrade to KernelCare,_2,_3].',
+                $self->base_path('scripts12/purchase_kernelcare_init'),
+                'target' => '_parent',
             );
         }
+        $self->add_warn_advice(
+            'key'          => 'Kernel_kernelcare_purchase',
+            'block_notify' => 1,
+            'text'         => $self->_lh->maketext('Upgrade to KernelCare.'),
+            'suggestion'   => $promotion . ' ' . $suggestion,
+        );
     }
 
     return 1;
