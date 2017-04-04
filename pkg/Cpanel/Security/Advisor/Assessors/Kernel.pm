@@ -81,8 +81,23 @@ sub _suggest_kernelcare {
     return if !Cpanel::KernelCare::system_supports_kernelcare();
 
     my $advertising_preference = eval { Cpanel::KernelCare::Availability::get_company_advertising_preferences() };
-    if ($@) {
-        $advertising_preference = { disabled => 0, url => '', email => '' };
+    if ( my $err = $@ ) {
+        if ( ref $err && $err->isa('Cpanel::Exception::HTTP::Network') ) {    # If we can't get the network, assume connections to cPanel are blocked.
+            $advertising_preference = { disabled => 0, url => '', email => '' };
+        }
+        elsif ( ref $err && $err->isa('Cpanel::Exception::HTTP::Server') ) {    # If cPanel gives an error code, give customers the benefit of the doubt.
+            return;                                                             # No advertising.
+        }
+        else {
+            $self->add_warn_advice(
+                key  => 'Kernel_kernelcare_preference_error',
+                text => $self->_lh->maketext(
+                    'The system cannot check the [asis,KernelCare] promotion preferences: [_1]',
+                    Cpanel::Exception::get_string_no_id($err),
+                ),
+            );
+            return;                                                             # No need to advertise; they will get a warning.
+        }
     }
 
     # Abort if the customer requested we don't advertise.
@@ -91,6 +106,15 @@ sub _suggest_kernelcare {
     my $promotion = $self->_lh->maketext('KernelCare provides an easy and effortless way to ensure that your operating system uses the most up-to-date kernel without the need to reboot your server.');
 
     my $license = eval { Cpanel::KernelCare::Availability::system_license_from_cpanel() };
+    if ( my $err = $@ ) {
+        $self->add_warn_advice(
+            key  => 'Kernel_kernelcare_license_error',
+            text => $self->_lh->maketext(
+                'The system cannot check for [asis,KernelCare] licenses: [_1]',
+                Cpanel::Exception::get_string_no_id($err),
+            ),
+        );
+    }
 
     # check to see this IP has a valid license even if it is not installed
     if ($license) {
