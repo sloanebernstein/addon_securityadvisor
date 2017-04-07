@@ -44,8 +44,8 @@ use Cpanel::Version   ();
 plan skip_all => 'Requires cPanel & WHM v66 or later' if Cpanel::Version::compare( Cpanel::Version::getversionnumber(), '<', '11.65' );
 plan tests => 5;
 
-my $envtype = Test::MockModule->new('Cpanel::OSSys::Env');
-$envtype->mock( get_envtype => sub { 'lxc' } );    # Disable KernelCare advertisements.
+my $envtype = Test::MockModule->new('Cpanel::KernelCare');
+$envtype->mock( system_supports_kernelcare => sub { 0 } );    # Disable KernelCare advertisements.
 
 subtest 'Error parsing boot configuration' => sub {
     plan tests => 2;
