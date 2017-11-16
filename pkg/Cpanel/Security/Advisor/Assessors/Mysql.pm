@@ -120,7 +120,7 @@ sub _check_for_anonymous_users {
         $self->add_bad_advice(
             'key'        => 'Mysql_found_anonymous_users',
             'text'       => $self->_lh->maketext("You have some anonymous mysql users"),
-            'suggestion' => $self->_lh->maketext(q{Remove mysql anonymous mysql users: > mysql -e 'drop user ""'})
+            'suggestion' => $self->_lh->maketext(q{Remove mysql anonymous mysql users: > mysql -e "DELETE FROM mysql.user WHERE User=''; FLUSH PRIVILEGES;"})
         );
     }
 
