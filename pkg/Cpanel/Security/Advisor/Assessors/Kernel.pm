@@ -28,9 +28,11 @@ package Cpanel::Security::Advisor::Assessors::Kernel;
 
 use strict;
 use warnings;
+no warnings qw/once/;    # suppress perl warnings about the $Cpanel::KernelCare::KC_* package variables used in conditionals, in this subroutine only
 use base 'Cpanel::Security::Advisor::Assessors';
 
-use Cpanel::Version ();
+use Cpanel::Version                                ();
+use Cpanel::Security::Advisor::Assessors::Symlinks ();
 
 sub version {
     return '1.05';
@@ -73,12 +75,64 @@ sub generate_advice {
     return 1;
 }
 
+# free patch set is included in the extra patch set
+sub _has_kc_free_patch_set {
+    my $state = shift;
+    return $state == $Cpanel::KernelCare::KC_FREE_PATCH_SET || $state == $Cpanel::KernelCare::KC_EXTRA_PATCH_SET;
+}
+
+# default patch set is included in the extra patch set
+sub _has_kc_default_patch_set {
+    my $state = shift;
+    return $state == $Cpanel::KernelCare::KC_DEFAULT_PATCH_SET || $state == $Cpanel::KernelCare::KC_EXTRA_PATCH_SET;
+}
+
 sub _suggest_kernelcare {
     my ($self) = @_;
 
     # Abort if the system won't benefit from KernelCare.
-    return if Cpanel::KernelCare::system_has_kernelcare();
-    return if !Cpanel::KernelCare::system_supports_kernelcare();
+    return if !Cpanel::KernelCare::system_supports_kernelcare() or Cpanel::Security::Advisor::Assessors::Symlinks->new->has_cpanel_hardened_kernel();
+
+    my $kernelcare_state = Cpanel::KernelCare::get_kernelcare_state();
+
+    my ( $promotion, $note );
+
+    # Show alert for free state, even if we don't know "company_advertising_preferences"; show if KernelCare is
+    # not installed or just the default (paid) patch is applied; do not show if free patch set or extra patch set
+    # is detected
+    my $is_ea4 = ( defined &Cpanel::Config::Httpd::is_ea4 && Cpanel::Config::Httpd::is_ea4() ) ? 1 : 0;
+
+    if ( _has_kc_free_patch_set($kernelcare_state) ) {
+        $promotion = $self->_lh->maketext(q{This free patch set protects your system from symlink attacks.});
+        my $doclink = $self->_lh->maketext( q{For more information, read the [output,url,_1,documentation,_2,_3].}, ($is_ea4) ? 'https://go.cpanel.net/EA4Symlink' : 'https://go.cpanel.net/apachesymlink', 'target', '_blank' );
+        $self->add_good_advice(
+            'key'          => 'Kernel_kernelcare_free_symlink_protection_enabled',
+            'block_notify' => 1,
+            'text'         => q{You are Protected by KernelCare's Free Symlink Protection.},
+            'suggestion'   => $promotion . ' ' . $note . $doclink,
+        );
+    }
+    else {
+        my $doclink = $self->_lh->maketext( q{You can protect against this in multiple ways. Please review the following [output,url,_1,documentation,_2,_3] to find a solution that is suited to your needs.}, ($is_ea4) ? 'https://go.cpanel.net/EA4Symlink' : 'https://go.cpanel.net/apachesymlink', 'target', '_blank' );
+        $promotion = $self->_lh->maketext(q{This free patch set protects your system from symlink attacks. Add KernelCare's Free Patch Set.});
+        $note      = $self->_lh->maketext(q{NOTE: This is not the full KernelCare product and service.});
+        my $link = $self->_lh->maketext(
+            '[output,url,_1,Add KernelCare\'s Free Symlink Protection,_2,_3].',
+            $self->base_path('scripts12/add_kernelcare_free_symlink_protection'),
+            'target' => '_parent',
+        );
+        $self->add_bad_advice(
+            'key'          => 'Kernel_kernelcare_suggest_free_symlink_protection',
+            'block_notify' => 1,
+            'text'         => q{Add KernelCare's Free Symlink Protection.},
+            'suggestion'   => $promotion . ' ' . $link . ' ' . $note . '<br/><br/>' . $doclink,
+        );
+    }
+
+    # Show KC symlink protection is active if free patch set or extra patch set is detected
+
+    # if kernelcare is installed, and both default (paid) and free patch sets are applied, there is nothing to do so return to caller
+    return if $kernelcare_state == $Cpanel::KernelCare::KC_EXTRA_PATCH_SET;
 
     my $advertising_preference = eval { Cpanel::KernelCare::Availability::get_company_advertising_preferences() };
     if ( my $err = $@ ) {
@@ -100,24 +154,12 @@ sub _suggest_kernelcare {
         }
     }
 
-    # Abort if the customer requested we don't advertise.
+    # Abort if the customer requested we don't advertise - applies only to alert to pay for a license.
     return if $advertising_preference->{disabled};
 
-    my $promotion = $self->_lh->maketext('KernelCare provides an easy and effortless way to ensure that your operating system uses the most up-to-date kernel without the need to reboot your server.');
-
-    my $license = eval { Cpanel::KernelCare::Availability::system_license_from_cpanel() };
-    if ( my $err = $@ ) {
-        $self->add_warn_advice(
-            key  => 'Kernel_kernelcare_license_error',
-            text => $self->_lh->maketext(
-                'The system cannot check for [asis,KernelCare] licenses: [_1]',
-                Cpanel::Exception::get_string_no_id($err),
-            ),
-        );
-    }
-
-    # check to see this IP has a valid license even if it is not installed
-    if ($license) {
+    # Alert that this IP has a valid KernelCare license, but the RPM is not installed (offer link to install it)
+    $promotion = $self->_lh->maketext('KernelCare provides an easy and effortless way to ensure that your operating system uses the most up-to-date kernel without the need to reboot your server.');
+    if ( $kernelcare_state == $Cpanel::KernelCare::KC_MISSING ) {
         $self->add_bad_advice(
             'key'        => 'Kernel_kernelcare_valid_license_but_not_installed',
             'text'       => $self->_lh->maketext('Valid KernelCare License Found, but KernelCare is Not Installed.'),
@@ -128,7 +170,10 @@ sub _suggest_kernelcare {
             ),
         );
     }
-    else {
+
+    # Offer KernelCare upgrade to a paid license if KernelCare is either not installed or if KernelCare is installed and just the free patch set is applied
+    #TODO - successful purchase flow handler needs to be updated to look for KC RPM/free patch set and merely apply default patch set if kernelcare is already installed
+    elsif ( !_has_kc_default_patch_set($kernelcare_state) ) {
         my $suggestion = '';
         if ( $advertising_preference->{'url'} ) {
             $suggestion = $self->_lh->maketext(
@@ -151,11 +196,15 @@ sub _suggest_kernelcare {
                 'target' => '_parent',
             );
         }
+
+        $promotion = $self->_lh->maketext('KernelCare provides an easy and effortless way to ensure that your operating system uses the most up-to-date kernel without the need to reboot your server.');
+        $note      = $self->_lh->maketext(q{NOTE: After you purchase and install KernelCare, you can obtain and install the KernelCare "Extra" Patchset, which includes symlink protection.});
+
         $self->add_warn_advice(
             'key'          => 'Kernel_kernelcare_purchase',
             'block_notify' => 1,
             'text'         => $self->_lh->maketext('Upgrade to KernelCare.'),
-            'suggestion'   => $promotion . ' ' . $suggestion,
+            'suggestion'   => $promotion . ' ' . $suggestion . ' ' . $note,
         );
     }
 

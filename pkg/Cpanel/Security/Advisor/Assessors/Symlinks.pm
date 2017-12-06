@@ -39,11 +39,33 @@ use base 'Cpanel::Security::Advisor::Assessors';
 
 sub generate_advice {
     my ($self) = @_;
-    $self->_check_for_symlink_kernel_patch;
 
+    if ( $self->has_cpanel_hardened_kernel() ) {
+        $self->add_warn_advice(
+            'key'  => 'Symlinks_protection_no_longer_support_hardened_kernel',
+            'text' => $self->_lh->maketext('Unsupported cPanel hardened kernel detected.'),
+
+            'suggestion' => $self->_lh->maketext(
+                "[asis,cPanel] no longer supports the hardened kernel. We recommend that you use [asis,KernelCare's] free symlink protection. In order to enable [asis,KernelCare], you must replace the hardened kernel with a standard kernel. For instructions, please read the document on [output,url,_1,How to Manually Remove the cPanel-Provided Hardened Kernel,_2,_3].",
+                'https://go.cpanel.net/uninstallhardenedkernel', 'target', '_blank'
+            ),
+        );
+
+    }
     return 1;
 }
 
+sub has_cpanel_hardened_kernel {
+    my $self                  = shift;
+    my $hardened_kernel_state = $self->_check_for_symlink_kernel_patch();
+    my $ret;
+    if ( $hardened_kernel_state eq q{Symlinks_protection_enabled_for_centos6} ) {
+        $ret = 1;
+    }
+    return $ret;
+}
+
+# returns truthy if any of the associated sysctls are set
 sub _enforcing_symlink_ownership {
     my $self = shift;
 
@@ -61,6 +83,7 @@ sub _enforcing_symlink_ownership {
     return 0;
 }
 
+# returns truthy if any of the associated sysctls are set
 sub _symlink_enforcement_gid {
     my $self = shift;
 
@@ -82,6 +105,8 @@ sub _symlink_enforcement_gid {
     return undef;
 }
 
+# checks to see if grsec patch is applied to the running kernel, first by
+# looking at associated sysctls; then by attempting a benign symlink escallation attack
 sub _check_for_symlink_kernel_patch {
     my ($self) = @_;
 
@@ -101,37 +126,20 @@ sub _check_for_symlink_kernel_patch {
     # the administrator install one.
     #
     unless ( $self->_enforcing_symlink_ownership() ) {
-        $self->add_bad_advice(
-            'key'        => q{Symlinks_no_kernel_support_for_ownership_attacks_1},
-            'text'       => $self->_lh->maketext('Kernel does not support the prevention of symlink ownership attacks.'),
-            'suggestion' => $self->_lh->maketext(
-                'You do not appear to have any symlink protection enabled through a properly patched kernel on this server, which provides additional protections beyond those solutions employed in userland. Please review [output,url,_1,the documentation,_2,_3] to learn how to apply this protection.',
-                ($is_ea4) ? 'https://go.cpanel.net/EA4Symlink' : 'https://go.cpanel.net/apachesymlink',
-                'target',
-                '_blank'
-            ),
-        );
 
-        return 1;
+        # You do not appear to have any symlink protection enabled through a properly patched kernel on this server, which provides additional protections beyond those solutions employed in userland. Please review [output,url,_1,the documentation,_2,_3] to learn how to apply this protection.
+        return q{Symlinks_no_kernel_support_for_ownership_attacks_1};
     }
 
     my $gid = $self->_symlink_enforcement_gid();
 
     unless ( defined $gid ) {
-        $self->add_bad_advice(
-            'key'        => q{Symlinks_no_kernel_support_for_ownership_attacks_2},
-            'text'       => $self->_lh->maketext('Kernel does not support the prevention of symlink ownership attacks.'),
-            'suggestion' => $self->_lh->maketext(
-                'You do not appear to have any symlink protection enabled through a properly patched kernel on this server, which provides additional protections beyond those solutions employed in userland. Please review [output,url,_1,the documentation,_2,_3] to learn how to apply this protection.',
-                ($is_ea4) ? 'https://go.cpanel.net/EA4Symlink' : 'https://go.cpanel.net/apachesymlink',
-                'target',
-                '_blank'
-            ),
-        );
 
-        return 1;
+        # You do not appear to have any symlink protection enabled through a properly patched kernel on this server, which provides additional protections beyond those solutions employed in userland. Please review [output,url,_1,the documentation,_2,_3] to learn how to apply this protection.
+        return q{Symlinks_no_kernel_support_for_ownership_attacks_2};
     }
 
+    # Attempt at a benign symlink attack, if it fails we assume symlink protection is not in place
     my $shadow = '/etc/shadow';
     my $tmpobj = Cpanel::TempFile->new;
     my $dir    = $tmpobj->dir;
@@ -147,23 +155,17 @@ sub _check_for_symlink_kernel_patch {
         local $) = $gid;
 
         if ( open my $fh, '<', $link ) {
-            $self->add_bad_advice(
-                'key'        => q{Symlinks_protection_not_enabled_for_centos6},
-                'text'       => $self->_lh->maketext('Kernel symlink protection is not enabled for CentOS 6.'),
-                'suggestion' => $self->_lh->maketext('You do not appear to have any symlink protection enabled through a properly patched kernel on this server, which provides additional protect beyond those solutions employed in userland. Please review the following documentation to learn how to apply this protection.'),
-            );
 
-            close $fh;
+            # You do not appear to have any symlink protection enabled through a properly patched kernel on this server, which provides additional protect beyond those solutions employed in userland. Please review the following documentation to learn how to apply this protection.
+            return q{Symlinks_protection_not_enabled_for_centos6};
         }
         else {
-            $self->add_good_advice(
-                'key'  => q{Symlinks_protection_enabled_for_centos6},
-                'text' => $self->_lh->maketext('Kernel symlink protection is enabled for CentOS 6.'),
-            );
+            # Kernel symlink protection is enabled for CentOS 6.
+            return q{Symlinks_protection_enabled_for_centos6};
         }
     }
 
-    return 1;
+    return undef;
 }
 
 1;

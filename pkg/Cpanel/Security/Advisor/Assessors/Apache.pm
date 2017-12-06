@@ -37,6 +37,7 @@ use Cpanel::Validate::Username ();
 use Cpanel::GenSysInfo         ();
 use Cpanel::DataStore          ();
 use Cpanel::RestartSrv         ();
+use Cpanel::KernelCare         ();
 
 sub version {
     return '1.03';
@@ -167,13 +168,15 @@ sub _check_for_symlink_protection {
     if ( $kernel_type eq "cloudlinux" ) {
         $self->_cloudlinux_symlink_protection($ruid);
     }
-    elsif ( $kernel_type eq "grsec" ) {
-        $self->_grsecurity_symlink_protection();
-    }
     elsif ( $kernel_type eq "other" ) {
         $self->_centos_symlink_protection($ruid);
     }
     return 1;
+}
+
+sub _has_kc_free_patch_set {
+    my $state = shift;
+    return $state == $Cpanel::KernelCare::KC_FREE_PATCH_SET || $state == $Cpanel::KernelCare::KC_EXTRA_PATCH_SET;
 }
 
 sub _centos_symlink_protection {
@@ -194,7 +197,9 @@ sub _centos_symlink_protection {
     my $local_settings = ($is_ea4) ? Cpanel::DataStore::fetch_ref('/var/cpanel/conf/apache/local') : undef;
     my $bluehost_ea4 = ($is_ea4) ? ( exists $local_settings->{main}->{symlink_protect} && $local_settings->{main}->{symlink_protect}->{item}->{symlink_protect} eq 'On' ) : 0;
 
-    if ($ruid) {
+    my $kernelcare_state = Cpanel::KernelCare::get_kernelcare_state();
+
+    if ( $ruid and !_has_kc_free_patch_set($kernelcare_state) ) {
         if ($jailedapache) {
             $security_advisor_obj->add_advice(
                 {
@@ -220,7 +225,7 @@ sub _centos_symlink_protection {
             );
         }
     }
-    if ( $bluehost_ea3 || $bluehost_ea4 ) {
+    if ( !_has_kc_free_patch_set($kernelcare_state) and ( $bluehost_ea3 || $bluehost_ea4 ) ) {
         $security_advisor_obj->add_advice(
             {
                 'key'        => 'Apache_bluehost_provided_symlink_protection',
@@ -250,7 +255,7 @@ sub _centos_symlink_protection {
             }
         );
     }
-    if ( !($ruid) && !($rack911) && !($bluehost_ea3) && !($bluehost_ea4) && $sysinfo->{'rpm_dist_ver'} != 6 ) {    # if CentOS 6 is detected, defer to the Assessors::Symlinks
+    if ( !($ruid) && !($rack911) && !($bluehost_ea3) && !($bluehost_ea4) && !_has_kc_free_patch_set($kernelcare_state) ) {
         $security_advisor_obj->add_advice(
             {
                 'key'        => 'Apache_no_symlink_protection',
@@ -403,6 +408,7 @@ sub _is_cagefs_running {
     return;
 }
 
+# This subroutine determines the precise state of the system with respect the hardended grsec kernel.
 sub _grsecurity_symlink_protection {
     my $self                 = shift;
     my $security_advisor_obj = $self->{'security_advisor_obj'};
@@ -414,48 +420,34 @@ sub _grsecurity_symlink_protection {
         Cpanel::SafeRun::Simple::saferunallerrors( 'sysctl', '-n', 'kernel.grsecurity.symlinkown_gid' ),
         Cpanel::SafeRun::Simple::saferunallerrors( 'sysctl', '-n', 'kernel.grsecurity.enforce_symlinksifowner' )
     );
+    my $grsec_state = q{unknown};
+
     if ( ( $sysctl_kernel_grsecurity_symlinkown_gid =~ /unknown/ ) && ( $sysctl_kernel_grsecurity_enforce_symlinksifowner =~ /unknown/ ) ) {
-        $security_advisor_obj->add_advice(
-            {
-                'key'        => 'Apache_grsecurity_does_not_have_sysctl_enabeled',
-                'type'       => $warn,
-                'text'       => $self->_lh->maketext('Apache Symlink Protection: Grsecruity does not have the sysctl option enabled'),
-                'suggestion' => $self->_lh->maketext(
-                    "It appears that the sysctl option may not have been selected for the grsec kernel. Due to this, it is not possible to verify the configuration of symlinkown_gid which is the gid of the Apache user that should not follow symlinks. This is usually 99 on cPanel servers. If you are confident that this is correct and do not wish to be able to easily verify your grsecurity kernel options, then you may disregard this message. Otherwise, please visit the [output,url,_1,Grsecurity Documentation,_2,_3] to learn more about enabling the sysctl option during kernel compilation.",
-                    'http://en.wikibooks.org/wiki/Grsecurity/Configuring_and_Installing_grsecurity#Suggestions',
-                    'target',
-                    '_blank'
-                ),
-            }
-        );
+
+        # It appears that the sysctl option may not have been selected for the grsec
+        # kernel. Due to this, it is not possible to verify the configuration of
+        # symlinkown_gid which is the gid of the Apache user that should not follow
+        # symlinks. This is usually 99 on cPanel servers. If you are confident that this
+        # is correct and do not wish to be able to easily verify your grsecurity kernel
+        # options, then you may disregard this message. Otherwise, please visit the
+        # Grsecurity Documentation to learn more about enabling the sysctl option during
+        # kernel compilation.
+        $grsec_state = q{Apache_grsecurity_does_not_have_sysctl_enabeled};
     }
     elsif (( $sysctl_kernel_grsecurity_symlinkown_gid != 99 )
         || ( $sysctl_kernel_grsecurity_enforce_symlinksifowner != 1 ) ) {
-        $security_advisor_obj->add_advice(
-            {
-                'key'        => 'Apache_grsecurity_sysctl_values',
-                'type'       => $bad,
-                'text'       => $self->_lh->maketext('Apache Symlink Protection: Grsecurity sysctl values'),
-                'suggestion' => $self->_lh->maketext(
-                    "It seems that your sysctl keys, enforce_symlinksifowner, and symlinkown_gid, may not be configured correctly for a cPanel server. Typically, enforce_symlinksifowner is set to 1, and symlinkown_gid is set to 99 on a cPanel server. For further information, see the [output,url,_1,Grsecurity Documentation,_2,_3].",
-                    'http://en.wikibooks.org/wiki/Grsecurity/Appendix/Grsecurity_and_PaX_Configuration_Options#Kernel-enforced_SymlinksIfOwnerMatch',
-                    'target',
-                    '_blank'
-                ),
-            }
-        );
+
+        # It seems that your sysctl keys, enforce_symlinksifowner, and
+        # symlinkown_gid, may not be configured correctly for a cPanel server. Typically,
+        # enforce_symlinksifowner is set to 1, and symlinkown_gid is set to 99 on a cPanel
+        # server. For further information, see the Grsecurity Documentation.
+        $grsec_state = q{Apache_grsecurity_sysctl_values};
     }
     else {
-        $security_advisor_obj->add_advice(
-            {
-                'key'        => 'Apache_grsecurity_protection_enabled',
-                'type'       => $good,
-                'text'       => $self->_lh->maketext('Apache Symlink Protection: You are well protected by grsecurity'),
-                'suggestion' => $self->_lh->maketext("You appear to have sufficient protections from Apache Symlink Attacks"),
-            }
-        );
+        # You appear to have sufficient protections from Apache Symlink Attacks.
+        $grsec_state = q{Apache_grsecurity_protection_enabled};
     }
-    return 1;
+    return $grsec_state;
 }
 
 my $httpd;
