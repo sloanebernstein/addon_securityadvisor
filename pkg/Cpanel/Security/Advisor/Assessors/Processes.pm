@@ -30,7 +30,8 @@ use strict;
 use warnings;
 use base 'Cpanel::Security::Advisor::Assessors';
 
-use Cpanel::Version ();
+use Cpanel::Sys::OS::Check ();
+use Cpanel::Version        ();
 
 sub version {
     return '1.01';
@@ -103,6 +104,11 @@ sub _check_for_outdated_processes {
     }
 
     if (@services) {
+        my $restart_cmd = 'systemctl restart';
+        if ( !Cpanel::Sys::OS::Check::has_systemd() ) {
+            $restart_cmd = 'service';
+            @services = map { s/\.service$//r } @services;
+        }
         $self->add_bad_advice(
             key  => 'Processes_detected_running_outdated_services',
             text => $self->_lh->maketext(
@@ -115,7 +121,7 @@ sub _check_for_outdated_processes {
                 $self->_lh->maketext(
                     'Restart the listed [numerate,_1,service,services] using “[_2]”; then click “[_3]” to check non-service processes.',
                     scalar @services,
-                    'systemctl restart',
+                    $restart_cmd,
                     'Scan Again',    # Not translated in pkg/templates/main.tmpl
                 ),
                 $self->_lh->maketext(
