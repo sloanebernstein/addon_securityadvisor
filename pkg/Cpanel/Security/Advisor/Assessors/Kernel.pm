@@ -109,10 +109,12 @@ sub _suggest_kernelcare {
             'key'          => 'Kernel_kernelcare_free_symlink_protection_enabled',
             'block_notify' => 1,
             'text'         => q{You are Protected by KernelCare's Free Symlink Protection.},
-            'suggestion'   => $promotion . ' ' . $note . $doclink,
+            'suggestion'   => $promotion . ' ' . $doclink,
         );
     }
-    else {
+
+    # don't offer Free patch set if Default is detected - SWAT-780
+    elsif ( $kernelcare_state != $Cpanel::KernelCare::KC_DEFAULT_PATCH_SET ) {
         my $doclink = $self->_lh->maketext( q{You can protect against this in multiple ways. Please review the following [output,url,_1,documentation,_2,_3] to find a solution that is suited to your needs.}, ($is_ea4) ? 'https://go.cpanel.net/EA4Symlink' : 'https://go.cpanel.net/apachesymlink', 'target', '_blank' );
         $promotion = $self->_lh->maketext(q{This free patch set protects your system from symlink attacks. Add KernelCare's Free Patch Set.});
         $note      = $self->_lh->maketext(q{NOTE: This is not the full KernelCare product and service.});

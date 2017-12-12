@@ -256,17 +256,17 @@ sub _centos_symlink_protection {
         );
     }
     if ( !($ruid) && !($rack911) && !($bluehost_ea3) && !($bluehost_ea4) && !_has_kc_free_patch_set($kernelcare_state) ) {
+        my $text    = $self->_lh->maketext(q{Kernel does not support the prevention of symlink ownership attacks.});
+        my $doclink = $self->_lh->maketext(
+            q{You do not appear to have any symlink protection enabled through a properly patched kernel on this server, which provides additional protections beyond those solutions employed in userland. Please review [output,url,_1,the documentation,_2,_3] to learn how to apply this protection.},
+            ($is_ea4) ? 'https://go.cpanel.net/EA4Symlink' : 'https://go.cpanel.net/apachesymlink', 'target', '_blank'
+        );
         $security_advisor_obj->add_advice(
             {
                 'key'        => 'Apache_no_symlink_protection',
                 'type'       => $bad,
-                'text'       => $self->_lh->maketext('No symlink protection detected'),
-                'suggestion' => $self->_lh->maketext(
-                    'You do not appear to have any symlink protection enabled on this server. You can protect against this in multiple ways. Please review the following [output,url,_1,documentation,_2,_3] to find a solution that is suited to your needs.',
-                    ($is_ea4) ? 'https://go.cpanel.net/EA4Symlink' : 'https://go.cpanel.net/apachesymlink',
-                    'target',
-                    '_blank'
-                ),
+                'text'       => $text,
+                'suggestion' => $doclink,
             }
         );
     }
