@@ -42,7 +42,7 @@ use Cpanel::Exception ();
 use Cpanel::Version   ();
 
 plan skip_all => 'Requires cPanel & WHM v66 or later' if Cpanel::Version::compare( Cpanel::Version::getversionnumber(), '<', '11.65' );
-plan tests => 7;
+plan tests => 6;
 
 subtest 'Missing executable' => sub {
     plan tests => 1;
@@ -198,39 +198,6 @@ subtest 'Recommend reboot' => sub {
         type       => $Cpanel::Security::Advisor::ADVISE_BAD,
     };
     cmp_assessor( 'Processes', [$expected], 'PID 1 updated' );
-};
-
-subtest 'Recommend service restart' => sub {
-    plan tests => 3;
-
-    my $outdated = Test::MockModule->new('Cpanel::ProcessCheck::Outdated');
-    $outdated->mock(
-        reboot_suggested   => sub { },
-        outdated_services  => sub { qw(exim.service) },
-        outdated_processes => sub { },
-    );
-
-    my $expected = {
-        key        => 'Processes_detected_running_outdated_services',
-        text       => 'Detected 1 service that is running outdated executables: exim.service',
-        suggestion => 'You must take one of the following actions to ensure the system is up-to-date:<ul><li>Restart the listed service using “systemctl restart”; then click “Scan Again” to check non-service processes.</li><li>Reboot the server (../scripts/dialog?dialog=reboot).</li></ul>',
-        type       => $Cpanel::Security::Advisor::ADVISE_BAD,
-    };
-    cmp_assessor( 'Processes', [$expected], 'One service outdated' );
-
-    $outdated->mock( outdated_services => sub { qw(cpanellogd.service exim.service sshd.service) } );
-    $expected = {
-        key        => 'Processes_detected_running_outdated_services',
-        text       => 'Detected 3 services that are running outdated executables: cpanellogd.service exim.service sshd.service',
-        suggestion => 'You must take one of the following actions to ensure the system is up-to-date:<ul><li>Restart the listed services using “systemctl restart”; then click “Scan Again” to check non-service processes.</li><li>Reboot the server (../scripts/dialog?dialog=reboot).</li></ul>',
-        type       => $Cpanel::Security::Advisor::ADVISE_BAD,
-    };
-    cmp_assessor( 'Processes', [$expected], 'Multiple services outdated' );
-
-    $outdated->mock( outdated_processes => sub { ( 1, 2, 3 ) } );
-
-    # $expected unchanged.
-    cmp_assessor( 'Processes', [$expected], 'Multiple services outdated - other things too' );
 };
 
 subtest 'Recommend process restart' => sub {

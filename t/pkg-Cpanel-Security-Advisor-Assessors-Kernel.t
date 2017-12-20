@@ -42,7 +42,7 @@ use Cpanel::Exception ();
 use Cpanel::Version   ();
 
 plan skip_all => 'Requires cPanel & WHM v66 or later' if Cpanel::Version::compare( Cpanel::Version::getversionnumber(), '<', '11.65' );
-plan tests => 5;
+plan tests => 4;
 
 my $envtype = Test::MockModule->new('Cpanel::KernelCare');
 $envtype->mock( system_supports_kernelcare => sub { 0 } );    # Disable KernelCare advertisements.
@@ -67,24 +67,6 @@ subtest 'Error parsing boot configuration' => sub {
     $status->mock( kernel_status => sub { die "Unable to locate grub2-editenv binary. You may need to re-install grub2-tools package.\n" } );
     $expected->{advice}{text} = "The system cannot check the kernel status: Unable to locate grub2-editenv binary. You may need to re-install grub2-tools package.\n";
     cmp_assessor( 'Kernel', [$expected], 'Handle string errors' );
-};
-
-subtest 'Unsupported environment' => sub {
-    plan tests => 1;
-
-    my $status = Test::MockModule->new('Cpanel::Kernel::Status');
-    $status->mock( kernel_status => sub { die Cpanel::Exception::create( 'Unsupported', 'Cannot update this system’s kernel.' ) } );
-
-    my $expected = {
-        module   => 'Cpanel::Security::Advisor::Assessors::Kernel',
-        function => ignore(),
-        advice   => {
-            key  => 'Kernel_unsupported_environment',
-            text => 'The system cannot update the kernel: Cannot update this system’s kernel.',
-            type => $Cpanel::Security::Advisor::ADVISE_INFO,
-        },
-    };
-    cmp_assessor( 'Kernel', [$expected], 'Notify on unsupported platform' );
 };
 
 subtest 'Custom kernels' => sub {
