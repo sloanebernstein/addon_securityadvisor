@@ -34,6 +34,7 @@ use Lchown ();
 use Cpanel::TempFile      ();
 use Cpanel::GenSysInfo    ();
 use Cpanel::Config::Httpd ();
+use Cpanel::Sys::Uname    ();
 
 use base 'Cpanel::Security::Advisor::Assessors';
 
@@ -57,9 +58,9 @@ sub generate_advice {
 
 sub has_cpanel_hardened_kernel {
     my $self                  = shift;
-    my $hardened_kernel_state = $self->_check_for_symlink_kernel_patch();
+    my $hardened_kernel_state = ( Cpanel::Sys::Uname::get_uname_cached() )[2];
     my $ret;
-    if ( $hardened_kernel_state eq q{Symlinks_protection_enabled_for_centos6} ) {
+    if ( $hardened_kernel_state =~ m/(?:cpanel|cp)6.x86_64/ ) {
         $ret = 1;
     }
     return $ret;
