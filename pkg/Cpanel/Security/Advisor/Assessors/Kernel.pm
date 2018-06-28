@@ -1,6 +1,6 @@
 package Cpanel::Security::Advisor::Assessors::Kernel;
 
-# Copyright (c) 2017, cPanel, Inc.
+# Copyright (c) 2018, cPanel, Inc.
 # All rights reserved.
 # http://cpanel.net
 #
@@ -340,7 +340,7 @@ sub _check_kernelcare_kernel {
             $self->add_info_advice(
                 'key'  => 'Kernel_update_available',
                 'text' => $self->_lh->maketext(
-                    'The system kernel is up-to-date at version “[_1]”, thanks to [asis,KernelCare] patches.  However, on reboot, the system will briefly start with version “[_2]” before being patched again by [asis,KernelCare].',
+                    'The system kernel will now boot version “[_1]” instead of “[_2]”. Although [asis,KernelCare] still fully protects your server, we recommend that you reboot to the latest kernel version.',
                     $kernel->{running_version},
                     $kernel->{unpatched_version},
                 ),
@@ -371,18 +371,9 @@ sub _check_kernelcare_kernel {
         $self->add_info_advice(
             'key'  => 'Kernel_waiting_for_kernelcare_update_2',
             'text' => $self->_lh->maketext(
-                'The system kernel is at version “[_1]”, but is set to boot to version “[_2]”.',
-                $kernel->{running_version},
+                'The system kernel has changed from version “[_1]” to boot to version “[_2]”. While you are fully protected by KernelCare, it may still be a good idea to reboot into the latest system kernel at your earliest convenience.',
+                $kernel->{unpatched_version},
                 $kernel->{boot_version},
-            ),
-            'suggestion' => _make_unordered_list(
-                $self->_lh->maketext('You must take one of the following actions to ensure the system is up-to-date:'),
-                $self->_lh->maketext('Wait a few days for [asis,KernelCare] to publish a kernel patch.'),
-                $self->_lh->maketext(
-                    '[output,url,_1,Reboot the system,_2,_3].',
-                    $self->base_path('scripts/dialog?dialog=reboot'),
-                    'target' => '_blank',
-                ),
             ),
         );
     }
