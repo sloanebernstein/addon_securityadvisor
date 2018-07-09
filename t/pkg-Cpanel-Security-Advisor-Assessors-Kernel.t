@@ -1,6 +1,6 @@
 #!/usr/local/cpanel/3rdparty/bin/perl
 
-# Copyright (c) 2017, cPanel, Inc.
+# Copyright (c) 2018, cPanel, Inc.
 # All rights reserved.
 # http://cpanel.net
 #
@@ -265,10 +265,9 @@ subtest 'KernelCare systems' => sub {
         module   => 'Cpanel::Security::Advisor::Assessors::Kernel',
         function => ignore(),
         advice   => {
-            key        => 'Kernel_waiting_for_kernelcare_update_2',
-            text       => 'The system kernel is at version “3.10.0-514.el7.x86_64”, but is set to boot to version “3.10.0-514.6.2.el7.x86_64”.',
-            suggestion => 'You must take one of the following actions to ensure the system is up-to-date:<ul><li>Wait a few days for KernelCare to publish a kernel patch.</li><li>Reboot the system (../scripts/dialog?dialog=reboot).</li></ul>',
-            type       => $Cpanel::Security::Advisor::ADVISE_INFO,
+            key  => 'Kernel_waiting_for_kernelcare_update_2',
+            text => 'The system kernel has changed from version “3.10.0-514.el7.x86_64” to boot to version “3.10.0-514.6.2.el7.x86_64”. While you are fully protected by KernelCare, it may still be a good idea to reboot into the latest system kernel at your earliest convenience.',
+            type => $Cpanel::Security::Advisor::ADVISE_INFO,
         },
     };
     cmp_assessor( 'Kernel', [$expected], 'Boot and running version mismatch' );
@@ -431,10 +430,9 @@ subtest 'KernelCare systems' => sub {
         module   => 'Cpanel::Security::Advisor::Assessors::Kernel',
         function => ignore(),
         advice   => {
-            key        => 'Kernel_waiting_for_kernelcare_update_2',
-            text       => 'The system kernel is at version “3.10.0-514.2.2.el7.x86_64”, but is set to boot to version “3.10.0-514.6.2.el7.x86_64”.',
-            suggestion => 'You must take one of the following actions to ensure the system is up-to-date:<ul><li>Wait a few days for KernelCare to publish a kernel patch.</li><li>Reboot the system (../scripts/dialog?dialog=reboot).</li></ul>',
-            type       => $Cpanel::Security::Advisor::ADVISE_INFO,
+            key  => 'Kernel_waiting_for_kernelcare_update_2',
+            text => 'The system kernel has changed from version “3.10.0-514.el7.x86_64” to boot to version “3.10.0-514.6.2.el7.x86_64”. While you are fully protected by KernelCare, it may still be a good idea to reboot into the latest system kernel at your earliest convenience.',
+            type => $Cpanel::Security::Advisor::ADVISE_INFO,
         },
     };
     cmp_assessor( 'Kernel', [$expected], 'Waiting for patch, RPM update applied' );
@@ -461,7 +459,7 @@ subtest 'KernelCare systems' => sub {
         function => ignore(),
         advice   => {
             key        => 'Kernel_update_available',
-            text       => 'The system kernel is up-to-date at version “3.10.0-514.10.2.el7.x86_64”, thanks to KernelCare patches.  However, on reboot, the system will briefly start with version “3.10.0-514.el7.x86_64” before being patched again by KernelCare.',
+            text       => 'The system kernel will now boot version “3.10.0-514.10.2.el7.x86_64” instead of “3.10.0-514.el7.x86_64”. Although KernelCare still fully protects your server, we recommend that you reboot to the latest kernel version.',
             suggestion => 'Install the latest “kernel” RPM package to immediately boot into the latest kernel.',
             type       => $Cpanel::Security::Advisor::ADVISE_INFO,
         },
