@@ -29,6 +29,7 @@ package Cpanel::Security::Advisor::Assessors::Apache;
 use strict;
 use base 'Cpanel::Security::Advisor::Assessors';
 use Cpanel::Config::Sources    ();
+use Cpanel::Config::Httpd::EA3 ();
 use Cpanel::HttpRequest        ();
 use Cpanel::HttpUtils::Version ();
 use Cpanel::SafeRun::Errors    ();
@@ -45,6 +46,7 @@ sub version {
 
 sub generate_advice {
     my ($self) = @_;
+    $self->_check_for_easyapache3_eol();
     $self->_check_for_apache_chroot();
     $self->_check_for_easyapache_build();
     $self->_check_for_eol_apache();
@@ -128,6 +130,26 @@ sub _check_for_easyapache_build {
                     $self->base_path('cgi/easyapache.pl?action=_pre_cpanel_sync_screen'),
                     'target',
                     '_blank'
+                ),
+            }
+        );
+    }
+    return 1;
+}
+
+sub _check_for_easyapache3_eol {
+    my $self                 = shift;
+    my $security_advisor_obj = $self->{'security_advisor_obj'};
+
+    if ( Cpanel::Config::Httpd::EA3::is_ea3() ) {
+        $security_advisor_obj->add_advice(
+            {
+                'key'        => 'Apache_easyapache3_going_eol',
+                'type'       => $Cpanel::Security::Advisor::ADVISE_BAD,
+                'text'       => $self->_lh->maketext('[asis,EasyApache 3] is going to be deprecated on December 31, 2018. After that date, [asis,cPanel amp() WHM] will no longer update [asis,EasyApache 3].'),
+                'suggestion' => $self->_lh->maketext(
+                    'In [asis,cPanel amp() WHM] version 78, we will remove support for [asis,EasyApache 3]. If you do not upgrade to [asis,EasyApache 4], you cannot upgrade to [asis,cPanel amp() WHM] version 78. For more information, read our [output,url,_1,EasyApache 4 documentation,target,_blank].',
+                    'https://go.cpanel.net/ea4'
                 ),
             }
         );
