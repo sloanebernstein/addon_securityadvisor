@@ -29,7 +29,7 @@ package Cpanel::Security::Advisor::Assessors::Apache;
 use strict;
 use base 'Cpanel::Security::Advisor::Assessors';
 use Cpanel::Config::Sources    ();
-use Cpanel::Config::Httpd::EA3 ();
+use Cpanel::Config::Httpd::EA4 ();
 use Cpanel::HttpRequest        ();
 use Cpanel::HttpUtils::Version ();
 use Cpanel::SafeRun::Errors    ();
@@ -141,7 +141,7 @@ sub _check_for_easyapache3_eol {
     my $self                 = shift;
     my $security_advisor_obj = $self->{'security_advisor_obj'};
 
-    if ( Cpanel::Config::Httpd::EA3::is_ea3() ) {
+    if ( !Cpanel::Config::Httpd::EA4::is_ea4() ) {
         $security_advisor_obj->add_advice(
             {
                 'key'        => 'Apache_easyapache3_going_eol',
