@@ -84,7 +84,7 @@ sub run {
 sub _check_acls {
     Whostmgr::ACLS::init_acls();
 
-    if ( !Whostmgr::ACLS::hasroot() || -e q{/var/cpanel/dnsonly} ) {
+    if ( !Whostmgr::ACLS::hasroot() ) {
         _headers('text/html');
         Whostmgr::HTMLInterface::defheader('cPanel Security Advisor');
         print <<'EOM';
