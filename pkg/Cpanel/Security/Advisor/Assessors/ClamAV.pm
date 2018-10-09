@@ -46,6 +46,8 @@ sub _check_clamav {
 
     my $security_advisor_obj = $self->{'security_advisor_obj'};
 
+    my $install_clamav = 'scripts2/manage_plugins';
+
     $self->_find_clamav();
 
     if ( !$self->{clamav}{clamscan}{bin} && !$self->{clamav}{freshclam}{bin} ) {
@@ -56,7 +58,7 @@ sub _check_clamav {
                 'text'       => $self->_lh->maketext('ClamAV is not installed.'),
                 'suggestion' => $self->_lh->maketext(
                     'Install ClamAV within "[output,url,_1,Manage Plugins,_2,_3]".',
-                    $self->base_path('scripts2/getthemes?modules=1'), 'target', '_blank',
+                    $self->base_path($install_clamav), 'target', '_blank',
                 ),
             }
         );
@@ -69,7 +71,7 @@ sub _check_clamav {
                 'text'       => $self->_lh->maketext('ClamAV clamscan binary is not installed.'),
                 'suggestion' => $self->_lh->maketext(
                     'Install ClamAV within "[output,url,_1,Manage Plugins,_2,_3]".',
-                    $self->base_path('scripts2/getthemes?modules=1'), 'target', '_blank',
+                    $self->base_path($install_clamav), 'target', '_blank',
                 ),
             }
         );
@@ -82,13 +84,35 @@ sub _check_clamav {
                 'text'       => $self->_lh->maketext('ClamAV freshclam binary is not installed.'),
                 'suggestion' => $self->_lh->maketext(
                     'Install ClamAV within "[output,url,_1,Manage Plugins,_2,_3]".',
-                    $self->base_path('scripts2/getthemes?modules=1'), 'target', '_blank',
+                    $self->base_path($install_clamav), 'target', '_blank',
                 ),
             }
         );
     }
     else {
         $self->_get_clam_version();
+
+        my @bad_clams;
+
+        push( @bad_clams, 'clamscan' )  if !defined $self->{clamav}{clamscan}{version};
+        push( @bad_clams, 'freshclam' ) if !defined $self->{clamav}{freshclam}{version};
+
+        if (@bad_clams) {
+
+            $security_advisor_obj->add_advice(
+                {
+                    'key'        => 'ClamAV_failed_to_get_version',
+                    'type'       => $Cpanel::Security::Advisor::ADVISE_BAD,
+                    'text'       => $self->_lh->maketext( 'Failed to get version for [list_and,_1].', \@bad_clams ),
+                    'suggestion' => $self->_lh->maketext(
+                        'clamscan version: [_1]<br/>freshclam version: [_2]<br/><br/>Install ClamAV within "[output,url,_3,Manage Plugins,_4,_5]".', $self->{clamav}{clamscan}{version_str}, $self->{clamav}{freshclam}{version_str}, $self->base_path($install_clamav), 'target', '_blank',
+                    ),
+                }
+            );
+
+            return $self;
+        }
+
         if ( $self->{clamav}{clamscan}{version} ne $self->{clamav}{freshclam}{version} ) {
             $security_advisor_obj->add_advice(
                 {
@@ -96,8 +120,7 @@ sub _check_clamav {
                     'type'       => $Cpanel::Security::Advisor::ADVISE_WARN,
                     'text'       => $self->_lh->maketext('ClamAV freshclam and clamscan binaries are different versions.'),
                     'suggestion' => $self->_lh->maketext(
-                        'Install ClamAV within "[output,url,_1,Manage Plugins,_2,_3]".',
-                        $self->base_path('scripts2/getthemes?modules=1'), 'target', '_blank',
+                        'clamscan version: [_1]<br/>freshclam version: [_2]<br/><br/>Install ClamAV within "[output,url,_3,Manage Plugins,_4,_5]".', $self->{clamav}{clamscan}{version_str}, $self->{clamav}{freshclam}{version_str}, $self->base_path($install_clamav), 'target', '_blank',
                     ),
                 }
             );
@@ -120,16 +143,14 @@ sub _find_clamav {
 sub _get_clam_version {
     my ($self) = @_;
 
-    chomp( my $version = Cpanel::SafeRun::Errors::saferunnoerror( $self->{clamav}{clamscan}{bin}, '-V' ) );
-    if ( $version =~ /^ClamAV (\d\.\d{1,3}\.\d{1,2}\/\d{1,7})\/(.*)/m ) {
-        $self->{clamav}{clamscan}{version}    = $1;
-        $self->{clamav}{clamscan}{build_date} = $2;
+    foreach my $clam ( 'clamscan', 'freshclam' ) {
+        chomp( my $version = Cpanel::SafeRun::Errors::saferunallerrors( $self->{clamav}{$clam}{bin}, '-V' ) );
+        $self->{clamav}{$clam}{version_str} = $version || 'Failed to obtain version!';
+        if ( $version =~ /^ClamAV (\d+\.\d+\.\d+)/m ) {
+            $self->{clamav}{$clam}{version} = $1;
+        }
     }
-    chomp( $version = Cpanel::SafeRun::Errors::saferunnoerror( $self->{clamav}{freshclam}{bin}, '-V' ) );
-    if ( $version =~ /^ClamAV (\d\.\d{1,3}\.\d{1,2}\/\d{1,7})\/(.*)/m ) {
-        $self->{clamav}{freshclam}{version}    = $1;
-        $self->{clamav}{freshclam}{build_date} = $2;
-    }
+
     return $self;
 }
 
