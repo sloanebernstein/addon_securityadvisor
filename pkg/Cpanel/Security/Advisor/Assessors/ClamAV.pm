@@ -105,7 +105,7 @@ sub _check_clamav {
                     'type'       => $Cpanel::Security::Advisor::ADVISE_BAD,
                     'text'       => $self->_lh->maketext( 'Failed to get version for [list_and,_1].', \@bad_clams ),
                     'suggestion' => $self->_lh->maketext(
-                        'clamscan version: [_1]<br/>freshclam version: [_2]<br/><br/>Install ClamAV within "[output,url,_3,Manage Plugins,_4,_5]".', $self->{clamav}{clamscan}{version_str}, $self->{clamav}{freshclam}{version_str}, $self->base_path($install_clamav), 'target', '_blank',
+                        'clamscan version: [_1]<br/>freshclam version: [_2]<br/><br/>Reinstall ClamAV within "[output,url,_3,Manage Plugins,_4,_5]".', $self->{clamav}{clamscan}{version_str}, $self->{clamav}{freshclam}{version_str}, $self->base_path($install_clamav), 'target', '_blank',
                     ),
                 }
             );
@@ -120,7 +120,7 @@ sub _check_clamav {
                     'type'       => $Cpanel::Security::Advisor::ADVISE_WARN,
                     'text'       => $self->_lh->maketext('ClamAV freshclam and clamscan binaries are different versions.'),
                     'suggestion' => $self->_lh->maketext(
-                        'clamscan version: [_1]<br/>freshclam version: [_2]<br/><br/>Install ClamAV within "[output,url,_3,Manage Plugins,_4,_5]".', $self->{clamav}{clamscan}{version_str}, $self->{clamav}{freshclam}{version_str}, $self->base_path($install_clamav), 'target', '_blank',
+                        'clamscan version: [_1]<br/>freshclam version: [_2]<br/><br/>Reinstall ClamAV within "[output,url,_3,Manage Plugins,_4,_5]".', $self->{clamav}{clamscan}{version_str}, $self->{clamav}{freshclam}{version_str}, $self->base_path($install_clamav), 'target', '_blank',
                     ),
                 }
             );
