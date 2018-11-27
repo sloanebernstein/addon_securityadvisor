@@ -34,8 +34,11 @@ use base 'Cpanel::Security::Advisor::Assessors';
 use Cpanel::Version                                ();
 use Cpanel::Security::Advisor::Assessors::Symlinks ();
 
+# https://store.cpanel.net/json-api/products/cpstore
+our $KC_PRICE_URL = q{https://store.cpanel.net};
+
 sub version {
-    return '1.05';
+    return '1.06';
 }
 
 sub generate_advice {
@@ -176,7 +179,7 @@ sub _suggest_kernelcare {
     # Offer KernelCare upgrade to a paid license if KernelCare is either not installed or if KernelCare is installed and just the free patch set is applied
     #TODO - successful purchase flow handler needs to be updated to look for KC RPM/free patch set and merely apply default patch set if kernelcare is already installed
     elsif ( !_has_kc_default_patch_set($kernelcare_state) ) {
-        my $suggestion = '';
+        my $suggestion;
         if ( $advertising_preference->{'url'} ) {
             $suggestion = $self->_lh->maketext(
                 '[output,url,_1,Upgrade to KernelCare,_2,_3].',
@@ -192,21 +195,23 @@ sub _suggest_kernelcare {
             );
         }
         else {
+            my $price = _get_kernelcare_monthly_price();
             $suggestion = $self->_lh->maketext(
-                '[output,url,_1,Upgrade to KernelCare,_2,_3].',
+                '[output,url,_1,Get KernelCare,_2,_3][_4].',
                 $self->base_path('scripts12/purchase_kernelcare_init'),
                 'target' => '_parent',
+                ($price) ? qq{ for \$$price/month} : q{},
             );
         }
 
-        $promotion = $self->_lh->maketext('KernelCare provides an easy and effortless way to ensure that your operating system uses the most up-to-date kernel without the need to reboot your server.');
-        $note      = $self->_lh->maketext(q{NOTE: After you purchase and install KernelCare, you can obtain and install the KernelCare "Extra" Patchset, which includes symlink protection.});
+        $suggestion = ($suggestion) ? '<p/><p/>' . $suggestion : '';
+        $promotion = $self->_lh->maketext('KernelCare provides an easy and effortless way to ensure that your operating system uses the most up-to-date kernel without the need to reboot your server. After you purchase and install KernelCare, you can obtain and install the KernelCare "Extra" Patchset, which includes symlink protection.');
 
         $self->add_warn_advice(
             'key'          => 'Kernel_kernelcare_purchase',
             'block_notify' => 1,
-            'text'         => $self->_lh->maketext('Upgrade to KernelCare.'),
-            'suggestion'   => $promotion . ' ' . $suggestion . ' ' . $note,
+            'text'         => $self->_lh->maketext('Use KernelCare to automate kernel security updates without reboots.'),
+            'suggestion'   => $promotion . ' ' . $suggestion,
         );
     }
 
@@ -485,6 +490,31 @@ sub _suggest_kernelcare_on_a_cpanel_whm_system_at_v64 {
     }
 
     return 1;
+}
+
+sub _get_kernelcare_monthly_price {
+    my $kernelcare_price_url = sprintf( "%s/json-api/products/cpstore", $KC_PRICE_URL );
+    my $price;
+    local $@;
+    my $response = eval {
+        my $http = Cpanel::HTTP::Client->new( verify_SSL => $VERIFY_SSL )->die_on_http_error();
+        $http->get($kernelcare_price_url);
+    };
+
+    # on error
+    return $price if $@ or not $response;
+
+    my $results = Cpanel::JSON::Load( $response->{'content'} );
+
+    # unfortunately we have to iterate over all results to get the KernelCare results
+  PRICE:
+    foreach my $product ( @{ $results->{data} } ) {
+        if ( $product->{short_name} eq q{Monthly KernelCare} ) {
+            $price = $product->{price};
+            last PRICE;
+        }
+    }
+    return $price;
 }
 
 sub _verify_kernelcare_license {
