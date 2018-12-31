@@ -1,6 +1,6 @@
 package Cpanel::Security::Advisor::Assessors::Apache;
 
-# Copyright (c) 2017, cPanel, Inc.
+# Copyright (c) 2018, cPanel, L.L.C.
 # All rights reserved.
 # http://cpanel.net
 #
@@ -39,17 +39,20 @@ use Cpanel::GenSysInfo         ();
 use Cpanel::DataStore          ();
 use Cpanel::RestartSrv         ();
 use Cpanel::KernelCare         ();
+use Cpanel::Version::Tiny      ();
 
 sub version {
-    return '1.03';
+    return '1.04';
 }
 
 sub generate_advice {
     my ($self) = @_;
-    $self->_check_for_easyapache3_eol();
+
+    my $can_have_ea3 = $Cpanel::Version::Tiny::major_version < 77 ? 1 : 0;
+    $self->_check_for_easyapache3_eol() if $can_have_ea3;
     $self->_check_for_apache_chroot();
-    $self->_check_for_easyapache_build();
-    $self->_check_for_eol_apache();
+    $self->_check_for_easyapache_build() if $can_have_ea3;
+    $self->_check_for_eol_apache()       if $can_have_ea3;
     $self->_check_for_symlink_protection();
     return 1;
 }
