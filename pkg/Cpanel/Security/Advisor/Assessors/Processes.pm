@@ -104,7 +104,7 @@ sub _check_for_outdated_processes {
     }
 
     if (@services) {
-        my $restart_cmd = 'systemctl restart';
+        my $restart_cmd = 'systemctl restart ' . join( q{ }, @services );
         if ( !Cpanel::Sys::OS::Check::has_systemd() ) {
             $restart_cmd = 'service';
             @services = map { s/\.service$//r } @services;

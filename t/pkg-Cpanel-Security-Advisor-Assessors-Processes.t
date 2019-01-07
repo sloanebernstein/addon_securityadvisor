@@ -201,9 +201,23 @@ subtest 'Recommend reboot' => sub {
 };
 
 subtest 'Recommend process restart' => sub {
-    plan tests => 2;
+    plan tests => 3;
 
     my $outdated = Test::MockModule->new('Cpanel::ProcessCheck::Outdated');
+    $outdated->mock(
+        reboot_suggested   => sub { },
+        outdated_services  => sub { ('foo.service', 'bar.service') },
+        outdated_processes => sub { },
+    );
+
+    my $expected = {
+        key        => 'Processes_detected_running_outdated_services',
+        text       => 'Detected 2 services that are running outdated executables: foo.service bar.service',
+        suggestion => 'You must take one of the following actions to ensure the system is up-to-date:<ul><li>Restart the listed services using “systemctl restart foo.service bar.service”; then click “Scan Again” to check non-service processes.</li><li>Reboot the server (../scripts/dialog?dialog=reboot).</li></ul>',
+        type       => $Cpanel::Security::Advisor::ADVISE_BAD,
+    };
+    cmp_assessor( 'Processes', [$expected], 'One process outdated' );
+
     $outdated->mock(
         reboot_suggested   => sub { },
         outdated_services  => sub { },
