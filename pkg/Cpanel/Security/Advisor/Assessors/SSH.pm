@@ -88,6 +88,28 @@ sub _check_for_ssh_settings {
 
     }
 
+    # XXX With default C7 sshd_config, X11Forwarding to yes implies everything else will be yes, so only check one item and then advise to disable everything else
+
+    if ( $sshd_config->{'X11Forwarding'} =~ m/yes/i ) {
+        $self->add_bad_advice(
+            'key'        => 'SSH_tunnels_allowed',
+            'text'       => $self->_lh->maketext('SSH Tunnels are allowed.'),
+            'suggestion' => $self->_lh->maketext(
+                'Manually edit /etc/ssh/sshd_config and set "AllowAgentForwarding", "AllowTcpForwarding", and "X11Forwarding" to "no", Then restart SSH in the “[output,url,_1,Restart SSH,_2,_3]” area',
+                $self->base_path('scripts/ressshd'),
+                'target',
+                '_blank'
+            ),
+        );
+    }
+    else {
+        $self->add_good_advice(
+            'key'  => 'SSH_tunnels_allowed',
+            'text' => $self->_lh->maketext('SSH tunnels are disabled.'),
+        );
+
+    }
+
     return 1;
 
 }
