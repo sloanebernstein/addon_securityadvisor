@@ -37,6 +37,7 @@ use Cpanel::HTTP::Client    ();
 use Cpanel::JSON            ();
 use Cpanel::NAT             ();
 use Cpanel::Version         ();
+use Cpanel::RPM             ();
 
 use Cpanel::Imports;
 
@@ -117,13 +118,14 @@ sub _is_imunify360_licensed {
           && $license->{valid} eq 1;
     }
 
-    return 0;                           # TODO
+    return 1;                           # TODO
 }
 
 sub _is_imunify360_installed {
     my ($self) = @_;
+    my $rpm = Cpanel::RPM->new();
 
-    return 0;                           # TODO
+    return $rpm->has_rpm(q{imunify360-firewall});
 }
 
 1;
