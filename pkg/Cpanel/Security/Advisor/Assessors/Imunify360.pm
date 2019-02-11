@@ -43,9 +43,11 @@ use Cpanel::RPM             ();
 
 use Cpanel::Imports;
 
-our $IMUNIFY360_PRODUCT_ID            = 'IMUNIFY360';          # TODO: Update this string as needed
-our $IMUNIFY360_PACKAGE_ID_RE         = qr/\bIMUNIFY360\b/;    # TODO: Verify that this is correct
-our $IMUNIFY360_MINIMUM_CPWHM_VERSION = '11.79';               # we want it usable on both development and release builds for 11.80
+our $IMUNIFY360_MINIMUM_CPWHM_VERSION = '11.79';    # we want it usable on both development and release builds for 11.80
+
+# These two ids were verified as correct 2019-02-11 using https://verify.cpanel.net/api/addons?ip=...... for a licensed IP address
+our $IMUNIFY360_PRODUCT_ID    = 'Imunify360';
+our $IMUNIFY360_PACKAGE_ID_RE = qr/\bIMUNIFY360\b/;    # e.g., PARTNERNAME-IMUNIFY360-UNLIMITED or ANOTHERNAME-IMUNIFY360-SOLO
 
 # These two short names were verified as correct 2019-02-08 using https://aa.store.manage.testing.cpanel.net/
 our $IMUNIFY360_STORE_SHORTNAME_UNL  = 'monthly_imunify360_unlimited';
