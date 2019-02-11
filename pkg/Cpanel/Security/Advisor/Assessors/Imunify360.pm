@@ -31,11 +31,13 @@ use warnings;
 use base 'Cpanel::Security::Advisor::Assessors';
 
 use Cpanel::Config::Sources ();
+use Cpanel::cPStore         ();
 use Cpanel::DIp::MainIP     ();
 use Cpanel::Exception       ();
 use Cpanel::HTTP::Client    ();
 use Cpanel::JSON            ();
 use Cpanel::NAT             ();
+use Cpanel::Server::Type    ();
 use Cpanel::Version         ();
 use Cpanel::RPM             ();
 
@@ -44,6 +46,10 @@ use Cpanel::Imports;
 our $IMUNIFY360_PRODUCT_ID            = 'IMUNIFY360';          # TODO: Update this string as needed
 our $IMUNIFY360_PACKAGE_ID_RE         = qr/\bIMUNIFY360\b/;    # TODO: Verify that this is correct
 our $IMUNIFY360_MINIMUM_CPWHM_VERSION = '11.79';               # we want it usable on both development and release builds for 11.80
+
+# These two short names were verified as correct 2019-02-08 using https://aa.store.manage.testing.cpanel.net/
+our $IMUNIFY360_STORE_SHORTNAME_UNL  = 'monthly_imunify360_unlimited';
+our $IMUNIFY360_STORE_SHORTNAME_SOLO = 'monthly_imunify360_solo';
 
 sub version {
     return '1.00';
@@ -70,29 +76,36 @@ sub _suggest_imunify360 {
     my ($self) = @_;
 
     if ( !$self->_is_imunify360_licensed ) {
+        my $imunify360_price = _get_imunify360_price();
+        my $store_url        = Cpanel::Config::Sources::get_source('STORE_SERVER_URL');
+        my $url              = "$store_url/view/imunify360/license-options";
+
+        my $purchase_link =
+          $imunify360_price
+          ? locale()->maketext( '[output,url,_1,Get Imunify360,_2,_3] for [_4].', $url, 'target', '_blank', "\$$imunify360_price/month" )
+          : locale()->maketext( '[output,url,_1,Get Imunify360,_2,_3].',          $url, 'target', '_blank' );
+
         $self->add_warn_advice(
             key          => 'Imunify360_purchase',
             text         => locale()->maketext('Use [asis,Imunify360] to protect your server against attacks.'),
-            suggestion   => locale()->maketext('[asis,Imunify360] blocks attacks in real-time using a combination of technologies, including [asis,Proactive Defense™], which stops new attacks that scanners are not yet able to identify.'),
-            block_notify => 1,                                                                                                                                                                                                                     # Do not send a notification about this
+            suggestion   => locale()->maketext('[asis,Imunify360] blocks attacks in real-time using a combination of technologies, including [asis,Proactive Defense™], which stops new attacks that scanners are not yet able to identify.') . '<br /><br />' . $purchase_link,
+            block_notify => 1,                                                                                                                                                                                                                                                       # Do not send a notification about this
         );
     }
     elsif ( !$self->_is_imunify360_installed ) {
 
-        # TODO: Fill this in with a translatable message, link, and price based on a JSON API query for the latest pricing info
-        my $purchase_link = '';
         $self->add_warn_advice(
             key          => 'Imunify360_install',
             text         => locale()->maketext('You have an [asis,Imunify360] license, but you do not have [asis,Imunify360] installed on your server.'),
-            suggestion   => locale()->maketext('Install [asis,Imunify360].') . '<br /><br />' . $purchase_link,
-            block_notify => 1,                                                                                                                                                                                                                     # Do not send a notification about this
+            suggestion   => locale()->maketext('Install [asis,Imunify360].'),
+            block_notify => 1,                                                                                                                                                                                                                                                       # Do not send a notification about this
         );
     }
     else {
         $self->add_good_advice(
             key          => 'Imunify360_present',
             text         => locale()->maketext('Your server is protected by [asis,Imunify360].'),
-            block_notify => 1,                                                                                                                                                                                                                     # Do not send a notification about this
+            block_notify => 1,                                                                                                                                                                                                                                                       # Do not send a notification about this
         );
     }
 
@@ -118,7 +131,12 @@ sub _is_imunify360_licensed {
           && $license->{valid} eq 1;
     }
 
-    return 1;                           # TODO
+    # For QA purposes:
+    #  This touch file doesn't grant any actual ability to use Imunify360 as if it were licensed; it just tricks
+    #  the Security Advisor into skipping the promotional message and going right to the "installed" check.
+    return 1 if -f '/var/cpanel/imunify360_skip_promo';
+
+    return 0;
 }
 
 sub _is_imunify360_installed {
@@ -126,6 +144,32 @@ sub _is_imunify360_installed {
     my $rpm = Cpanel::RPM->new();
 
     return $rpm->has_rpm(q{imunify360-firewall});
+}
+
+sub _get_imunify360_product {
+    my $store        = Cpanel::cPStore->new();
+    my $product_list = $store->get('products/cpstore');
+
+    my $is_cpanel_solo = ( Cpanel::Server::Type::get_max_users() == 1 );
+
+    my $product_shortname =
+        $is_cpanel_solo
+      ? $IMUNIFY360_STORE_SHORTNAME_SOLO
+      : $IMUNIFY360_STORE_SHORTNAME_UNL;
+
+    foreach my $product (@$product_list) {
+        return $product if $product->{'short_name'} eq $product_shortname;
+    }
+
+    return;
+}
+
+sub _get_imunify360_price {
+    my $product = _get_imunify360_product;
+    if ( ref $product eq 'HASH' && $product->{price} ) {
+        return $product->{price};
+    }
+    return;
 }
 
 1;
