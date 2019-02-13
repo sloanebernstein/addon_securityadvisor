@@ -53,7 +53,7 @@ subtest 'Requires cPanel v80 or later' => sub {
 
     my $advice = get_advice();
 
-    ok( eq_array( \$advice, \[] ), "Should not get advice for versions lower than 80" ) or diag explain $advice;
+    is_deeply( $advice, [], "Should not get advice for versions lower than 80" ) or diag explain $advice;
 };
 
 $mocked_version_module->mock( getversionnumber => sub { '11.80' } );
@@ -66,7 +66,7 @@ subtest 'Advice to buy an Imunify360 license' => sub {
     my $advice      = get_advice();
     my $advice_text = $advice->[0]->{'advice'}->{'text'};
 
-    is( $advice_text, "Use Imunify360 to protect your server against attacks.", "It should advice buying an Imunify360 license" ) or diag explain $advice;
+    is( $advice_text, "Use Imunify360 to protect your server against attacks.", "It should advice buying an Imunify360 license" );
 };
 
 subtest 'Has a license but Imunify360 is not installed' => sub {
@@ -78,7 +78,7 @@ subtest 'Has a license but Imunify360 is not installed' => sub {
     my $advice      = get_advice();
     my $advice_text = $advice->[0]->{'advice'}->{'text'};
 
-    is( $advice_text, "You have an Imunify360 license, but you do not have Imunify360 installed on your server.", "It should advice installing Imunify360" ) or diag explain $advice;
+    is( $advice_text, "You have an Imunify360 license, but you do not have Imunify360 installed on your server.", "It should advice installing Imunify360" );
 };
 
 subtest 'Imunify360 is installed' => sub {
@@ -90,7 +90,7 @@ subtest 'Imunify360 is installed' => sub {
     my $advice      = get_advice();
     my $advice_text = $advice->[0]->{'advice'}->{'text'};
 
-    is( $advice_text, "Your server is protected by Imunify360.", "It should say that the server is protected" ) or diag explain $advice;
+    is( $advice_text, "Your server is protected by Imunify360.", "It should say that the server is protected" );
 };
 
 sub get_advice {
