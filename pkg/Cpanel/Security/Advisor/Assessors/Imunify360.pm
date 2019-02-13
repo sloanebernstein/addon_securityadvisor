@@ -74,8 +74,8 @@ sub _suggest_imunify360 {
 
         $self->add_warn_advice(
             key          => 'Imunify360_purchase',
-            text         => locale()->maketext('Use [asis,Imunify360] to protect your server against attacks.'),
-            suggestion   => locale()->maketext('[asis,Imunify360] blocks attacks in real-time using a combination of technologies, including [asis,Proactive Defense™], which stops new attacks that scanners are not yet able to identify.') . '<br /><br />' . $purchase_link,
+            text         => locale()->maketext('Use [asis,Imunify360] to protect your server.'),
+            suggestion   => locale()->maketext('[asis,Imunify360] blocks attacks in real-time using a combination of technologies, including Advanced Firewall, Intrusion Detection and Protection System, Malware Detection, [asis,Proactive Defense™], Patch Management, and Reputation Management.') . '<br /><br />' . $purchase_link,
             block_notify => 1,                                                                                                                                                                                                                                                       # Do not send a notification about this
         );
     }
