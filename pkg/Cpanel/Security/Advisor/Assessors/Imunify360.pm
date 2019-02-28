@@ -32,6 +32,8 @@ use base 'Cpanel::Security::Advisor::Assessors';
 
 use Cpanel::Config::Sources ();
 use Cpanel::Version         ();
+use Cpanel::HTTP::Client    ();
+use Cpanel::JSON            ();
 use Whostmgr::Imunify360    ();
 
 use Cpanel::Imports;
@@ -44,9 +46,10 @@ sub version {
 
 sub generate_advice {
     my ($self) = @_;
+    my $is_imunify360_disabled = _get_imunify360_data()->{'disabled'};
 
     eval {
-        if ( Cpanel::Version::compare( Cpanel::Version::getversionnumber(), '>=', $IMUNIFY360_MINIMUM_CPWHM_VERSION ) ) {
+        if ( Cpanel::Version::compare( Cpanel::Version::getversionnumber(), '>=', $IMUNIFY360_MINIMUM_CPWHM_VERSION ) and not $is_imunify360_disabled ) {
 
             $self->_suggest_imunify360;
         }
@@ -57,6 +60,40 @@ sub generate_advice {
     }
 
     return 1;
+}
+
+sub _get_imunify360_data {
+    my ($self) = @_;
+
+    # only for QA purposes
+    my $fake_url = 'https://10.1.35.78/imunify360.cgi';
+    my $real_url = 'https://manage2.cpanel.net/imunify360.cgi';
+
+    my $url = -f '/var/cpanel/disable_imunify360' ? $fake_url : $real_url;
+
+    local $@;
+    my $raw_resp = eval {
+        my $http = Cpanel::HTTP::Client->new( timeout => 10 )->die_on_http_error();
+        $http->get($url);
+    };
+
+    # on error
+    return { disabled => 0, url => '', email => '' } if $@ or not $raw_resp;
+
+    my $json_resp;
+    if ( $raw_resp->{'success'} ) {
+        eval { $json_resp = Cpanel::JSON::Load( $raw_resp->{'content'} ) };
+
+        if ($@) {
+            print STDERR $@;
+            $json_resp = { disabled => 0, url => '', email => '' };
+        }
+    }
+    else {
+        $json_resp = { disabled => 0, url => '', email => '' };
+    }
+
+    return $json_resp;
 }
 
 sub _suggest_imunify360 {
@@ -76,7 +113,7 @@ sub _suggest_imunify360 {
             key          => 'Imunify360_purchase',
             text         => locale()->maketext('Use [asis,Imunify360] to protect your server.'),
             suggestion   => locale()->maketext('[asis,Imunify360] blocks attacks in real-time using a combination of technologies, including Advanced Firewall, Intrusion Detection and Protection System, Malware Detection, [asis,Proactive Defense™], Patch Management, and Reputation Management.') . '<br /><br />' . $purchase_link,
-            block_notify => 1,                                                                                                                                                                                                                                                       # Do not send a notification about this
+            block_notify => 1,                                                                                                                                                                                                                                                                                                                 # Do not send a notification about this
         );
     }
     elsif ( !Whostmgr::Imunify360::is_imunify360_installed() ) {
@@ -85,14 +122,14 @@ sub _suggest_imunify360 {
             key          => 'Imunify360_install',
             text         => locale()->maketext('You have an [asis,Imunify360] license, but you do not have [asis,Imunify360] installed on your server.'),
             suggestion   => locale()->maketext('Install [asis,Imunify360].'),
-            block_notify => 1,                                                                                                                                                                                                                                                       # Do not send a notification about this
+            block_notify => 1,                                                                                                                                                                                                                                                                                                                 # Do not send a notification about this
         );
     }
     else {
         $self->add_good_advice(
             key          => 'Imunify360_present',
             text         => locale()->maketext('Your server is protected by [asis,Imunify360].'),
-            block_notify => 1,                                                                                                                                                                                                                                                       # Do not send a notification about this
+            block_notify => 1,                                                                                                                                                                                                                                                                                                                 # Do not send a notification about this
         );
     }
 
