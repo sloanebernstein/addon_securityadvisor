@@ -94,7 +94,10 @@ sub _suggest_kernelcare {
     my ($self) = @_;
 
     # Abort if the system won't benefit from KernelCare.
-    return if !Cpanel::KernelCare::system_supports_kernelcare() or Cpanel::Security::Advisor::Assessors::Symlinks->new->has_cpanel_hardened_kernel();
+    return if !Cpanel::KernelCare::system_supports_kernelcare() || Cpanel::Security::Advisor::Assessors::Symlinks->new->has_cpanel_hardened_kernel();
+
+    # Abort if kernelcare is already licensend
+    return if try { Cpanel::KernelCare::Availability::system_license_from_cpanel(); };
 
     my $kernelcare_state = Cpanel::KernelCare::get_kernelcare_state();
 
