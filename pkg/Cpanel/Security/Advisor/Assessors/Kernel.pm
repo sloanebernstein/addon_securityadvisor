@@ -205,7 +205,12 @@ sub _suggest_kernelcare {
         }
 
         $suggestion = ($suggestion) ? '<p/><p/>' . $suggestion : '';
-        $promotion = $self->_lh->maketext('KernelCare provides an easy and effortless way to ensure that your operating system uses the most up-to-date kernel without the need to reboot your server. After you purchase and install KernelCare, you can obtain and install the KernelCare "Extra" Patchset, which includes symlink protection.');
+        $promotion = $self->_lh->maketext('KernelCare provides an easy and effortless way to ensure that your operating system uses the most up-to-date kernel without the need to reboot your server.');
+
+        # Verifies the user is on CentOS 6 or 7, and is not running CloudLinux.
+        if ( Cpanel::KernelCare::system_supports_kernelcare_free() ) {
+            $promotion .= $self->_lh->maketext(' After you purchase and install KernelCare, you can obtain and install the KernelCare "Extra" Patchset, which includes symlink protection.');
+        }
 
         $self->add_warn_advice(
             'key'          => 'Kernel_kernelcare_purchase',
