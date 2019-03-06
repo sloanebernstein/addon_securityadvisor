@@ -1,6 +1,6 @@
 package Cpanel::Security::Advisor::Assessors::Trojans;
 
-# Copyright (c) 2016, cPanel, Inc.
+# Copyright (c) 2019, cPanel, L.L.C.
 # All rights reserved.
 # http://cpanel.net
 #
@@ -31,6 +31,7 @@ use Cpanel::SafeFind ();
 
 use base 'Cpanel::Security::Advisor::Assessors';
 use Cpanel::SafeRun::Simple;
+use Cpanel::SafeRun::Timed ();
 use Digest::SHA;
 
 our $LIBKEYUTILS_FILES_REF;
@@ -39,7 +40,7 @@ our $IPCS_REF;
 $IPCS_REF = get_ipcs_hash();
 
 sub version {
-    return '1.04';
+    return '1.05';
 }
 
 sub generate_advice {
@@ -59,7 +60,6 @@ sub generate_advice {
     $self->_check_for_ebury_ssh_G();
     $self->_check_for_ebury_ssh_banner();
     $self->_check_for_ebury_ssh_shmem();
-    $self->_check_for_ebury_root_file();
     return 1;
 }
 

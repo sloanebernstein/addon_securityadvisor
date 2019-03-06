@@ -1,6 +1,6 @@
 package Cpanel::Security::Advisor::Assessors::Mysql;
 
-# Copyright (c) 2013, cPanel, Inc.
+# Copyright (c) 2019, cPanel, L.L.C.
 # All rights reserved.
 # http://cpanel.net
 #
@@ -48,10 +48,9 @@ sub generate_advice {
             'key'        => 'Mysql_can_not_connect_to_mysql',
             'text'       => $self->_lh->maketext('Cannot connect to MySQL server.'),
             'suggestion' => $self->_lh->maketext(
-                'Enable MySQL database service',
+                'Enable the [output,url,_1,MySQL database service,_2].',
                 $self->base_path('scripts/srvmng'),
-                'target',
-                '_blank'
+                { 'target' => '_blank' },
             ),
 
         );
@@ -79,14 +78,17 @@ sub _check_for_db_test {
     if ( !$exists ) {
         $self->add_good_advice(
             'key'  => 'Mysql_test_database_does_not_exist',
-            'text' => $self->_lh->maketext("MySQL test database doesn't exist.")
+            'text' => $self->_lh->maketext("[asis,MySQL] test database does not exist.")
         );
     }
     else {
         $self->add_bad_advice(
             'key'        => 'Mysql_test_database_exists',
-            'text'       => $self->_lh->maketext("MySQL test database exists."),
-            'suggestion' => $self->_lh->maketext(q{MySQL test database is used by numerous attacks and should be removed by running “mysql -e 'drop database test'”.}),
+            'text'       => $self->_lh->maketext("[asis,MySQL] test database exists."),
+            'suggestion' => $self->_lh->maketext(
+                'Numerous attacks exploit the [asis,MySQL] test database. To remove it, run “[_1]”.',
+                "mysql -e 'drop database test'"
+            ),
         );
 
     }
@@ -113,14 +115,14 @@ sub _check_for_anonymous_users {
     if ($ok) {
         $self->add_good_advice(
             'key'  => 'Mysql_no_anonymous_users',
-            'text' => $self->_lh->maketext("MySQL check for anonymous users")
+            'text' => $self->_lh->maketext("[asis,MySQL] check for anonymous users")
         );
     }
     else {
         $self->add_bad_advice(
             'key'        => 'Mysql_found_anonymous_users',
-            'text'       => $self->_lh->maketext("You have some anonymous mysql users"),
-            'suggestion' => $self->_lh->maketext(q{Remove mysql anonymous mysql users: > mysql -e "DELETE FROM mysql.user WHERE User=''; FLUSH PRIVILEGES;"})
+            'text'       => $self->_lh->maketext("You have some anonymous [asis,MySQL] users"),
+            'suggestion' => $self->_lh->maketext( 'Remove [asis,MySQL] anonymous [asis,MySQL] users: [_1]', "mysql -e \"DELETE FROM mysql.user WHERE User=''; FLUSH PRIVILEGES;\"" )
         );
     }
 
@@ -238,19 +240,6 @@ sub csf_port_closed {
     my $contains = config_key_contains_port( '/etc/csf/csf.conf', 'TCP_IN', $port );
     return if !defined $contains;
     return !$contains;
-}
-
-sub _check_for_mysql_users {
-
-    # TODO
-    return 1;
-}
-
-sub _check_for_mysql_settings {
-    my ($self) = @_;
-
-    # TODO
-    return 1;
 }
 
 1;
