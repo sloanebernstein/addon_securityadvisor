@@ -67,10 +67,16 @@ sub _suggest_imunify360 {
         my $store_url        = Cpanel::Config::Sources::get_source('STORE_SERVER_URL');
         my $url              = "$store_url/view/imunify360/license-options";
 
-        my $purchase_link =
-          $imunify360_price
-          ? locale()->maketext( '[output,url,_1,Get Imunify360,_2,_3] for [_4].', $url, 'target', '_blank', "\$$imunify360_price/month" )
-          : locale()->maketext( '[output,url,_1,Get Imunify360,_2,_3].',          $url, 'target', '_blank' );
+        # my $purchase_link = $self->base_path('scripts12/purchase_imunify360_init');
+        #   $imunify360_price
+        #   ? locale()->maketext( '[output,url,_1,Get Imunify360,_2,_3] for [_4].', $url, 'target', '_blank', "\$$imunify360_price/month" )
+        #   : locale()->maketext( '[output,url,_1,Get Imunify360,_2,_3].',          $url, 'target', '_blank' );
+
+        my $purchase_link = $self->_lh->maketext(
+            '[output,url,_1,Get Imunify360,_2,_3].',
+            $self->base_path('scripts12/purchase_imunify360_init'),
+            'target' => '_parent',
+        );
 
         $self->add_warn_advice(
             key          => 'Imunify360_purchase',
