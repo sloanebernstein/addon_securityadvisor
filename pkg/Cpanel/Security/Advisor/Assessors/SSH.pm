@@ -46,8 +46,8 @@ sub generate_advice {
 sub _check_for_ssh_settings {
     my ($self) = @_;
 
-    my $sshd_config = Whostmgr::Services::SSH::Config::get_config();
-
+    my $scfg = Whostmgr::Services::SSH::Config->new();
+    my $sshd_config = $scfg->get_config();
     if ( $sshd_config->{'PasswordAuthentication'} =~ m/yes/i || $sshd_config->{'ChallengeResponseAuthentication'} =~ m/yes/i ) {
         $self->add_bad_advice(
             'key'        => 'SSH_password_authentication_enabled',
