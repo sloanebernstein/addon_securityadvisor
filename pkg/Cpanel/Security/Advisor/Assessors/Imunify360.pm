@@ -66,10 +66,10 @@ sub _get_imunify360_data {
     my ($self) = @_;
 
     # only for QA purposes
-    my $fake_url = 'https://10.1.35.78/imunify360.cgi';
+    my $fake_url = 'https://static-api.manage2.manage.devel.cpanel.net/imunify360.cgi';
     my $real_url = 'https://manage2.cpanel.net/imunify360.cgi';
 
-    my $url = -f '/var/cpanel/disable_imunify360' ? $fake_url : $real_url;
+    my $url = -f '/var/cpanel/imunify360_test_server' ? $fake_url : $real_url;
 
     local $@;
     my $raw_resp = eval {
