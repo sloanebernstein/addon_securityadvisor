@@ -36,44 +36,91 @@ use Cpanel::Version ();
 use Test::Assessor  ();
 use Test::More;
 use Test::MockModule;
+use HTTP::Response;
 
 use Cpanel::Security::Advisor::Assessors::Imunify360 ();
 
 plan skip_all => 'Requires cPanel & WHM v80 or later' if Cpanel::Version::compare( Cpanel::Version::getversionnumber(), '<', '11.79' );
 
-plan tests => 4;
+plan tests => 6;
 
 my $mocked_version_module    = Test::MockModule->new('Cpanel::Version');
 my $mocked_imunify360_module = Test::MockModule->new('Whostmgr::Imunify360');
+my $mocked_HTTP              = Test::MockModule->new('Cpanel::HTTP::Client');
+
+my $response_bad = Cpanel::HTTP::Client::Response->new(
+    {
+        success => 1,
+        status  => 200,
+        content => '
+            {
+                "disabled": 1,
+                "url": "",
+                "email": ""
+            }',
+    }
+);
+$response_bad->header( 'Content-Type', 'application/json' );
+
+my $response_good = Cpanel::HTTP::Client::Response->new(
+    {
+        success => 1,
+        status  => 200,
+        content => '
+            {
+                "disabled": 0,
+                "url": "",
+                "email": ""
+            }',
+    }
+);
+$response_good->header( 'Content-Type', 'application/json' );
 
 subtest 'Requires cPanel v80 or later' => sub {
     plan tests => 1;
 
-    $mocked_version_module->mock( getversionnumber => sub { '11.70' } );
+    $mocked_version_module->redefine( getversionnumber => sub { '11.70' } );
 
     my $advice = get_advice();
 
     is_deeply( $advice, [], "Should not get advice for versions lower than 80" ) or diag explain $advice;
 };
 
-$mocked_version_module->mock( getversionnumber => sub { '11.80' } );
+subtest 'When Imunify360 is disabled in Manage2' => sub {
+    plan tests => 1;
+
+    $mocked_version_module->redefine( getversionnumber => sub { '11.80' } );
+    $mocked_HTTP->redefine( 'get' => sub { $response_bad } );
+    my $advice = get_advice();
+
+    is_deeply( $advice, [], "Should not return the Imunify360 advice" );
+};
+
+subtest 'When Imunify360 is enabled in Manage2' => sub {
+    plan tests => 1;
+
+    $mocked_HTTP->redefine( 'get' => sub { $response_good } );
+    my $advice = get_advice();
+
+    is( $advice->[0]->{'module'}, 'Cpanel::Security::Advisor::Assessors::Imunify360', "Should return the Imunify360 advice" );
+};
 
 subtest 'Advice to buy an Imunify360 license' => sub {
     plan tests => 1;
 
-    $mocked_imunify360_module->mock( is_imunify360_licensed => sub { 0 } );
+    $mocked_imunify360_module->redefine( is_imunify360_licensed => sub { 0 } );
 
     my $advice      = get_advice();
     my $advice_text = $advice->[0]->{'advice'}->{'text'};
 
-    is( $advice_text, "Use Imunify360 to protect your server against attacks.", "It should advice buying an Imunify360 license" );
+    is( $advice_text, "Use Imunify360 to protect your server.", "It should advice buying an Imunify360 license" );
 };
 
 subtest 'Has a license but Imunify360 is not installed' => sub {
     plan tests => 1;
 
-    $mocked_imunify360_module->mock( is_imunify360_licensed  => sub { 1 } );
-    $mocked_imunify360_module->mock( is_imunify360_installed => sub { 0 } );
+    $mocked_imunify360_module->redefine( is_imunify360_licensed  => sub { 1 } );
+    $mocked_imunify360_module->redefine( is_imunify360_installed => sub { 0 } );
 
     my $advice      = get_advice();
     my $advice_text = $advice->[0]->{'advice'}->{'text'};
@@ -84,8 +131,8 @@ subtest 'Has a license but Imunify360 is not installed' => sub {
 subtest 'Imunify360 is installed' => sub {
     plan tests => 1;
 
-    $mocked_imunify360_module->mock( is_imunify360_licensed  => sub { 1 } );
-    $mocked_imunify360_module->mock( is_imunify360_installed => sub { 1 } );
+    $mocked_imunify360_module->redefine( is_imunify360_licensed  => sub { 1 } );
+    $mocked_imunify360_module->redefine( is_imunify360_installed => sub { 1 } );
 
     my $advice      = get_advice();
     my $advice_text = $advice->[0]->{'advice'}->{'text'};
