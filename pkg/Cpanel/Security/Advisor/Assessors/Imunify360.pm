@@ -117,11 +117,12 @@ sub _suggest_imunify360 {
         );
     }
     elsif ( !Whostmgr::Imunify360::is_imunify360_installed() ) {
+        my $installation_link = locale()->maketext( '[output,url,_1,Install Imunify360,_2,_3].', $self->base_path('scripts12/install_imunify360'), 'target', '_parent' );
 
         $self->add_warn_advice(
             key          => 'Imunify360_install',
             text         => locale()->maketext('You have an [asis,Imunify360] license, but you do not have [asis,Imunify360] installed on your server.'),
-            suggestion   => locale()->maketext('Install [asis,Imunify360].'),
+            suggestion   => $installation_link,
             block_notify => 1,                                                                                                                                                                                                                                                                                                                 # Do not send a notification about this
         );
     }
