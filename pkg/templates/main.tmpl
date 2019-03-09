@@ -49,7 +49,13 @@ END; %]
                 <span id="start_time">---</span>
             </td>
             <td align="center" width="36%">
-                <button  type="button" class="btn btn-primary" id="scan_button" onclick="scanner.run_scan()">[% locale.maketext('Scan Again') %]</button>
+                <button
+                    type="button"
+                    class="btn btn-primary"
+                    id="scan_button"
+                    onclick="scanner.run_scan()">
+                    [% locale.maketext('Scan Again') %]
+                </button>
                 <img id="spinner" style="display:none; margin-bottom: 3px; margin-right: 4px;" align="absmiddle" src="[%- cp_security_token -%]/images/report-spinner.gif" />
                 <span id="current_item">---</span>
             </td>
@@ -156,6 +162,10 @@ function Scanner() {
 
 Scanner.prototype.run_scan = function() {
     if ( !this.scan_running) {
+        var headers = this.headers;
+        ['success', 'info', 'warn', 'error'].forEach(function(name) {
+            headers[name].style.display = 'none';
+        });
         document.getElementById('scan_button').style.display = "";
         document.getElementById('securityadvice_error').innerHTML = "";
         document.getElementById('securityadvice_warn').innerHTML = "";
