@@ -127,9 +127,12 @@ sub _suggest_imunify360 {
         );
     }
     else {
+        my $imunify_whm_link = locale()->maketext( '[output,url,_1,Open Imunify360,_2,_3].', $self->base_path('/cgi/imunify/handlers/index.cgi#/admin/dashboard/incidents'), 'target', '_parent' );
+
         $self->add_good_advice(
             key          => 'Imunify360_present',
-            text         => locale()->maketext('Your server is protected by [asis,Imunify360].'),
+            text         => locale()->maketext( q{Your server is protected by [asis,Imunify360]. For more information, read the [output,url,_1,documentation,_2,_3].}, 'https://www.imunify360.com/getting-started', 'target', '_blank' ),
+            suggestion   => $imunify_whm_link,
             block_notify => 1,                                                                                                                                                                                                                                                                                                                 # Do not send a notification about this
         );
     }
