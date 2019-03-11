@@ -34,6 +34,8 @@ use Cpanel::Config::Sources ();
 use Cpanel::Version         ();
 use Cpanel::HTTP::Client    ();
 use Cpanel::JSON            ();
+use Cpanel::Sys::OS::Check  ();
+use Cpanel::Sys::GetOS      ();
 use Whostmgr::Imunify360    ();
 
 use Cpanel::Imports;
@@ -49,8 +51,9 @@ sub generate_advice {
     my $is_imunify360_disabled = _get_imunify360_data()->{'disabled'};
 
     eval {
-        if ( Cpanel::Version::compare( Cpanel::Version::getversionnumber(), '>=', $IMUNIFY360_MINIMUM_CPWHM_VERSION ) and not $is_imunify360_disabled ) {
-
+        if (   Cpanel::Version::compare( Cpanel::Version::getversionnumber(), '>=', $IMUNIFY360_MINIMUM_CPWHM_VERSION )
+            && _is_imunify360_supported()
+            && !$is_imunify360_disabled ) {
             $self->_suggest_imunify360;
         }
     };
@@ -107,7 +110,7 @@ sub _suggest_imunify360 {
         my $purchase_link =
           $imunify360_price
           ? locale()->maketext( '[output,url,_1,Get Imunify360,_2,_3] for [_4].', $self->base_path('scripts12/purchase_imunify360_init'), 'target', '_parent', "\$$imunify360_price/month" )
-          : locale()->maketext( '[output,url,_1,Get Imunify360,_2,_3].', $self->base_path('scripts12/purchase_imunify360_init'), 'target', '_parent' );
+          : locale()->maketext( '[output,url,_1,Get Imunify360,_2,_3].',          $self->base_path('scripts12/purchase_imunify360_init'), 'target', '_parent' );
 
         $self->add_warn_advice(
             key          => 'Imunify360_purchase',
@@ -138,6 +141,13 @@ sub _suggest_imunify360 {
     }
 
     return 1;
+}
+
+sub _is_imunify360_supported {
+    my $centos_version = Cpanel::Sys::OS::Check::get_strict_centos_version();
+    my $os             = Cpanel::Sys::GetOS::getos();
+    my $os_ok          = ( ( $os =~ /^centos$/ && ( $centos_version == 6 || $centos_version == 7 ) ) || $os =~ /^cloudlinux$/i );
+    return $os_ok;
 }
 
 1;
