@@ -68,11 +68,7 @@ sub generate_advice {
 sub _get_imunify360_data {
     my ($self) = @_;
 
-    # only for QA purposes
-    my $fake_url = 'https://static-api.manage2.manage.devel.cpanel.net/imunify360.cgi';
-    my $real_url = 'https://manage2.cpanel.net/imunify360.cgi';
-
-    my $url = -f '/var/cpanel/imunify360_test_server' ? $fake_url : $real_url;
+    my $url = 'https://manage2.cpanel.net/imunify360.cgi';
 
     local $@;
     my $raw_resp = eval {
