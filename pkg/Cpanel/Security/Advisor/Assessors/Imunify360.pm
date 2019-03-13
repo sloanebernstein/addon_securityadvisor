@@ -69,8 +69,9 @@ sub _get_purchase_and_install_template {
     return << 'TEMPLATE';
 [%- locale.maketext('[asis,Imunify360] delivers sophisticated detection and display of security threats, powered by a self-learning firewall with herd immunity. It blocks attacks in real-time using a combination of technologies, including Advanced Firewall, smart Intrusion Detection and Protection System, Malware Detection, [asis,Proactive Defense™], Patch Management, Reputation Management and an advanced Captcha system.') %]
 [% IF data.include_kernelcare %]
-[%- locale.maketext('[asis,KernelCare] is free with the purchase of [asis,Imunify360] and will be automatically installed.') %]
 <br />
+<br />
+[%- locale.maketext('[asis,KernelCare] is free with the purchase of [asis,Imunify360] and will be automatically installed.') %]
 [% END %]
 <br />
 <br />
@@ -107,8 +108,9 @@ sub _get_install_template {
     return << 'TEMPLATE';
 [%- locale.maketext('[asis,Imunify360] delivers sophisticated detection and display of security threats, powered by a self-learning firewall with herd immunity. It blocks attacks in real-time using a combination of technologies, including Advanced Firewall, smart Intrusion Detection and Protection System, Malware Detection, [asis,Proactive Defense™], Patch Management, Reputation Management and an advanced Captcha system.') %]
 [% IF data.include_kernelcare %]
-[%- locale.maketext('[asis,KernelCare] is free with the purchase of [asis,Imunify360] and will be automatically installed.') %]
 <br />
+<br />
+[%- locale.maketext('[asis,KernelCare] is free with the purchase of [asis,Imunify360] and will be automatically installed.') %]
 [% END %]
 <br />
 <br />
@@ -164,7 +166,8 @@ sub _suggest_imunify360 {
             {
                 'path'               => $self->base_path('scripts12/purchase_imunify360_init'),
                 'price'              => $imunify360_price,
-                'include_kernelcare' => Whostmgr::Imunify360::get_kernelcare_data()->{'disabled'} && Whostmgr::Imunify360::is_centos_6_or_7(),
+                'include_kernelcare' =>   !Whostmgr::Imunify360::get_kernelcare_data()->{'disabled'}
+                                        && Whostmgr::Imunify360::is_centos_6_or_7(),
             },
         );
 
@@ -180,7 +183,7 @@ sub _suggest_imunify360 {
             _get_install_template(),
             {
                 'path'               => $self->base_path('scripts12/install_imunify360'),
-                'include_kernelcare' => Whostmgr::Imunify360::get_kernelcare_data()->{'disabled'}
+                'include_kernelcare' => !Whostmgr::Imunify360::get_kernelcare_data()->{'disabled'}
                                         && Whostmgr::Imunify360::is_centos_6_or_7(),
             }
         );
