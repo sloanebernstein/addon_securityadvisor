@@ -48,7 +48,7 @@ sub version {
 
 sub generate_advice {
     my ($self) = @_;
-    my $is_imunify360_disabled = _get_imunify360_data()->{'disabled'};
+    my $is_imunify360_disabled = Whostmgr::Imunify360::get_imunify360_data()->{'disabled'};
 
     eval {
         if (   Cpanel::Version::compare( Cpanel::Version::getversionnumber(), '>=', $IMUNIFY360_MINIMUM_CPWHM_VERSION )
@@ -65,34 +65,36 @@ sub generate_advice {
     return 1;
 }
 
-sub _get_imunify360_data {
-    my ($self) = @_;
+sub _get_purchase_and_install_template {
+    return << 'TEMPLATE'
+[%- locale.maketext('[asis,Imunify360] blocks attacks in real-time using a combination of technologies, including Advanced Firewall, Intrusion Detection and Protection System, Malware Detection, [asis,Proactive Defense™], Patch Management, and Reputation Management.') %]
+[% IF data.include_kernelcare %]
+[%- locale.maketext('[asis,KernelCare] is free with the purchase of [asis,Imunify360] and will be automatically installed.') %]
+<br />
+[% END %]
+<br />
+<br />
+[%
+IF data.price;
+    locale.maketext( '[output,url,_1,Get Imunify360,_2,_3] for $[_4]/month.', data.path, 'target', '_parent', data.price );
+ELSE;
+    locale.maketext( '[output,url,_1,Get Imunify360,_2,_3].', data.path, 'target', '_parent');
+END;
+%]
+TEMPLATE
+}
 
-    my $url = 'https://manage2.cpanel.net/imunify360.cgi';
-
-    local $@;
-    my $raw_resp = eval {
-        my $http = Cpanel::HTTP::Client->new( timeout => 10 )->die_on_http_error();
-        $http->get($url);
-    };
-
-    # on error
-    return { disabled => 0, url => '', email => '' } if $@ or not $raw_resp;
-
-    my $json_resp;
-    if ( $raw_resp->{'success'} ) {
-        eval { $json_resp = Cpanel::JSON::Load( $raw_resp->{'content'} ) };
-
-        if ($@) {
-            print STDERR $@;
-            $json_resp = { disabled => 0, url => '', email => '' };
-        }
-    }
-    else {
-        $json_resp = { disabled => 0, url => '', email => '' };
-    }
-
-    return $json_resp;
+sub _get_install_template {
+    return << 'TEMPLATE'
+[%- locale.maketext('[asis,Imunify360] blocks attacks in real-time using a combination of technologies, including Advanced Firewall, Intrusion Detection and Protection System, Malware Detection, [asis,Proactive Defense™], Patch Management, and Reputation Management.') %]
+[% IF data.include_kernelcare %]
+[%- locale.maketext('[asis,KernelCare] is free with the purchase of [asis,Imunify360] and will be automatically installed.') %]
+<br />
+[% END %]
+<br />
+<br />
+[% locale.maketext( '[output,url,_1,Install Imunify360,_2,_3].', data.path, 'target', '_parent' ) %]
+TEMPLATE
 }
 
 sub _suggest_imunify360 {
@@ -103,25 +105,40 @@ sub _suggest_imunify360 {
         my $store_url        = Cpanel::Config::Sources::get_source('STORE_SERVER_URL');
         my $url              = "$store_url/view/imunify360/license-options";
 
-        my $purchase_link =
-          $imunify360_price
-          ? locale()->maketext( '[output,url,_1,Get Imunify360,_2,_3] for [_4].', $self->base_path('scripts12/purchase_imunify360_init'), 'target', '_parent', "\$$imunify360_price/month" )
-          : locale()->maketext( '[output,url,_1,Get Imunify360,_2,_3].',          $self->base_path('scripts12/purchase_imunify360_init'), 'target', '_parent' );
+        my ($ok, $output) = Cpanel::Template::process_template(
+                'whostmgr',
+                {
+                    'template' => _get_purchase_and_install_template(),
+                    'data'     => {
+                        'path'               => $self->base_path('scripts12/purchase_imunify360_init'),
+                        'price'              => $imunify360_price,
+                        'include_kernelcare' => Whostmgr::Imunify360::get_kernelcare_data()->{'disabled'} && Whostmgr::Imunify360::is_centos_6_or_7(),
+                    },
+                }
+            );
 
         $self->add_warn_advice(
             key          => 'Imunify360_purchase',
             text         => locale()->maketext('Use [asis,Imunify360] to protect your server.'),
-            suggestion   => locale()->maketext('[asis,Imunify360] blocks attacks in real-time using a combination of technologies, including Advanced Firewall, Intrusion Detection and Protection System, Malware Detection, [asis,Proactive Defense™], Patch Management, and Reputation Management.') . '<br /><br />' . $purchase_link,
+            suggestion   => $$output,
             block_notify => 1,                                                                                                                                                                                                                                                                                                                 # Do not send a notification about this
         );
     }
     elsif ( !Whostmgr::Imunify360::is_imunify360_installed() ) {
-        my $installation_link = locale()->maketext( '[output,url,_1,Install Imunify360,_2,_3].', $self->base_path('scripts12/install_imunify360'), 'target', '_parent' );
-
+        my ($ok, $output) = Cpanel::Template::process_template(
+                'whostmgr',
+                {
+                    'template' => _get_install_template(),
+                    'data'     => {
+                        'path'               => $self->base_path('scripts12/install_imunify360'),
+                        'include_kernelcare' => Whostmgr::Imunify360::get_kernelcare_data()->{'disabled'} && Whostmgr::Imunify360::is_centos_6_or_7(),
+                    },
+                }
+            );
         $self->add_warn_advice(
             key          => 'Imunify360_install',
             text         => locale()->maketext('You have an [asis,Imunify360] license, but you do not have [asis,Imunify360] installed on your server.'),
-            suggestion   => $installation_link,
+            suggestion   => $$output,
             block_notify => 1,                                                                                                                                                                                                                                                                                                                 # Do not send a notification about this
         );
     }
