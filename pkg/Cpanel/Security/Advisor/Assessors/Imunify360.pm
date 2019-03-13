@@ -67,7 +67,7 @@ sub generate_advice {
 
 sub _get_purchase_and_install_template {
     return << 'TEMPLATE'
-[%- locale.maketext('[asis,Imunify360] blocks attacks in real-time using a combination of technologies, including Advanced Firewall, Intrusion Detection and Protection System, Malware Detection, [asis,Proactive Defense™], Patch Management, and Reputation Management.') %]
+[%- locale.maketext('[asis,Imunify360] delivers sophisticated detection and display of security threats, powered by a self-learning firewall with herd immunity. It blocks attacks in real-time using a combination of technologies, including Advanced Firewall, smart Intrusion Detection and Protection System, Malware Detection, [asis,Proactive Defense™], Patch Management, Reputation Management and an advanced Captcha system.') %]
 [% IF data.include_kernelcare %]
 [%- locale.maketext('[asis,KernelCare] is free with the purchase of [asis,Imunify360] and will be automatically installed.') %]
 <br />
@@ -100,7 +100,19 @@ TEMPLATE
 sub _suggest_imunify360 {
     my ($self) = @_;
 
-    if ( !Whostmgr::Imunify360::is_imunify360_licensed() ) {
+    if ( !Whostmgr::Imunify360::is_imunify360_licensed() && Whostmgr::Imunify360::is_imunify360_installed() ) {
+
+        my $uninstall_docs_link = locale()->maketext( '[output,url,_1,Imunify360 Documentation,_2,_3].', 'https://docs.imunify360.com/uninstall/', 'target', '_blank' );
+        my $store_link = locale()->maketext( '[output,url,_1,cPanel Store,_2,_3].', $self->base_path('scripts12/purchase_imunify360_init'), 'target', '_parent' );
+
+        $self->add_warn_advice(
+            key          => 'Imunify360_update_license',
+            text         => locale()->maketext('You have [asis,Imunify360] installed but the license has expired.'),
+            suggestion   => locale()->maketext('For updating the license go to the ') . $store_link . '<br /><br />' . locale()->maketext('For uninstalling go to the ') . $uninstall_docs_link,
+            block_notify => 1,                                                                                                                                                                     # Do not send a notification about this
+        );
+    }
+    elsif ( !Whostmgr::Imunify360::is_imunify360_licensed() && !Whostmgr::Imunify360::is_imunify360_installed() ) {
         my $imunify360_price = Whostmgr::Imunify360::get_imunify360_price();
         my $store_url        = Cpanel::Config::Sources::get_source('STORE_SERVER_URL');
         my $url              = "$store_url/view/imunify360/license-options";
@@ -119,7 +131,7 @@ sub _suggest_imunify360 {
 
         $self->add_warn_advice(
             key          => 'Imunify360_purchase',
-            text         => locale()->maketext('Use [asis,Imunify360] to protect your server.'),
+            text         => locale()->maketext('Use [asis,Imunify360] for complete protection against attacks on your servers.'),
             suggestion   => $$output,
             block_notify => 1,                                                                                                                                                                                                                                                                                                                 # Do not send a notification about this
         );
@@ -149,7 +161,7 @@ sub _suggest_imunify360 {
             key          => 'Imunify360_present',
             text         => locale()->maketext( q{Your server is protected by [asis,Imunify360]. For more information, read the [output,url,_1,documentation,_2,_3].}, 'https://www.imunify360.com/getting-started', 'target', '_blank' ),
             suggestion   => $imunify_whm_link,
-            block_notify => 1,                                                                                                                                                                                                                                                                                                                 # Do not send a notification about this
+            block_notify => 1,                                                                                                                                                                                                               # Do not send a notification about this
         );
     }
 
