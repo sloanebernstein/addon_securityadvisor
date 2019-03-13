@@ -98,7 +98,19 @@ sub _get_imunify360_data {
 sub _suggest_imunify360 {
     my ($self) = @_;
 
-    if ( !Whostmgr::Imunify360::is_imunify360_licensed() ) {
+    if ( !Whostmgr::Imunify360::is_imunify360_licensed() && Whostmgr::Imunify360::is_imunify360_installed() ) {
+
+        my $uninstall_docs_link = locale()->maketext( '[output,url,_1,Imunify360 Documentation,_2,_3].', 'https://docs.imunify360.com/uninstall/', 'target', '_blank' );
+        my $store_link = locale()->maketext( '[output,url,_1,cPanel Store,_2,_3].', $self->base_path('scripts12/purchase_imunify360_init'), 'target', '_parent' );
+
+        $self->add_warn_advice(
+            key          => 'Imunify360_update_license',
+            text         => locale()->maketext('You have [asis,Imunify360] installed but the license has expired.'),
+            suggestion   => locale()->maketext('For updating the license go to the ') . $store_link . '<br /><br />' . locale()->maketext('For uninstalling go to the ') . $uninstall_docs_link,
+            block_notify => 1,                                                                                                                                                                                                                                                                                                                 # Do not send a notification about this
+        );
+    }
+    elsif ( !Whostmgr::Imunify360::is_imunify360_licensed() && !Whostmgr::Imunify360::is_imunify360_installed() ) {
         my $imunify360_price = Whostmgr::Imunify360::get_imunify360_price();
         my $store_url        = Cpanel::Config::Sources::get_source('STORE_SERVER_URL');
         my $url              = "$store_url/view/imunify360/license-options";
