@@ -107,7 +107,7 @@ sub _suggest_imunify360 {
             key          => 'Imunify360_update_license',
             text         => locale()->maketext('You have [asis,Imunify360] installed but the license has expired.'),
             suggestion   => locale()->maketext('For updating the license go to the ') . $store_link . '<br /><br />' . locale()->maketext('For uninstalling go to the ') . $uninstall_docs_link,
-            block_notify => 1,                                                                                                                                                                                                                                                                                                                 # Do not send a notification about this
+            block_notify => 1,                                                                                                                                                                     # Do not send a notification about this
         );
     }
     elsif ( !Whostmgr::Imunify360::is_imunify360_licensed() && !Whostmgr::Imunify360::is_imunify360_installed() ) {
@@ -121,10 +121,14 @@ sub _suggest_imunify360 {
           : locale()->maketext( '[output,url,_1,Get Imunify360,_2,_3].',          $self->base_path('scripts12/purchase_imunify360_init'), 'target', '_parent' );
 
         $self->add_warn_advice(
-            key          => 'Imunify360_purchase',
-            text         => locale()->maketext('Use [asis,Imunify360] to protect your server.'),
-            suggestion   => locale()->maketext('[asis,Imunify360] blocks attacks in real-time using a combination of technologies, including Advanced Firewall, Intrusion Detection and Protection System, Malware Detection, [asis,Proactive Defense™], Patch Management, and Reputation Management.') . '<br /><br />' . $purchase_link,
-            block_notify => 1,                                                                                                                                                                                                                                                                                                                 # Do not send a notification about this
+            key        => 'Imunify360_purchase',
+            text       => locale()->maketext('Use [asis,Imunify360] for complete protection against attacks on your servers.'),
+            suggestion => locale()->maketext(
+                '[asis,Imunify360] delivers sophisticated detection and display of security threats, powered by a self-learning firewall with herd immunity. It blocks attacks in real-time using a combination of technologies, including Advanced Firewall, smart Intrusion Detection and Protection System, Malware Detection, [asis,Proactive Defense™], Patch Management, Reputation Management and an advanced Captcha system.'
+              )
+              . '<br /><br />'
+              . $purchase_link,
+            block_notify => 1,    # Do not send a notification about this
         );
     }
     elsif ( !Whostmgr::Imunify360::is_imunify360_installed() ) {
@@ -134,7 +138,7 @@ sub _suggest_imunify360 {
             key          => 'Imunify360_install',
             text         => locale()->maketext('You have an [asis,Imunify360] license, but you do not have [asis,Imunify360] installed on your server.'),
             suggestion   => $installation_link,
-            block_notify => 1,                                                                                                                                                                                                                                                                                                                 # Do not send a notification about this
+            block_notify => 1,                                                                                                                              # Do not send a notification about this
         );
     }
     else {
@@ -144,7 +148,7 @@ sub _suggest_imunify360 {
             key          => 'Imunify360_present',
             text         => locale()->maketext( q{Your server is protected by [asis,Imunify360]. For more information, read the [output,url,_1,documentation,_2,_3].}, 'https://www.imunify360.com/getting-started', 'target', '_blank' ),
             suggestion   => $imunify_whm_link,
-            block_notify => 1,                                                                                                                                                                                                                                                                                                                 # Do not send a notification about this
+            block_notify => 1,                                                                                                                                                                                                               # Do not send a notification about this
         );
     }
 
