@@ -98,7 +98,7 @@ sub _get_purchase_template {
     <li>
     [%-
     locale.maketext(
-        'To renew the license, visit the [output,url,_1,cPanel Store,_2,_3].',
+        'To purchase a license, visit the [output,url,_1,cPanel Store,_2,_3].',
         data.path,
         'target',
         '_parent',
@@ -155,7 +155,7 @@ sub _suggest_imunify360 {
 
         $self->add_warn_advice(
             key        => 'Imunify360_update_license',
-            text       => locale()->maketext('[asis,Imunify360] is installed but the license is expired.'),
+            text       => locale()->maketext('[asis,Imunify360] is installed but you do not have a current license.'),
             suggestion => $$output,
             block_notify => 1,                                                                         # Do not send a notification about this
         );
