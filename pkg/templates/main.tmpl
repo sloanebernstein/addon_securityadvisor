@@ -5,7 +5,7 @@
     wrapper_theme = '';
 %]
 
-[% IF Whostmgr.WHM_VERSION >= 63;
+[% IF Whostmgr.RELEASE_VERSION >= 63;
     SET wrapper_path = 'master_templates/master.tmpl'
         wrapper_theme = 'bootstrap';
 END; %]
