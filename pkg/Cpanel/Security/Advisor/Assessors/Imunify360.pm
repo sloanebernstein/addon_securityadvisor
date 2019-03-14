@@ -67,14 +67,16 @@ sub generate_advice {
 
 sub _get_purchase_and_install_template {
     return << 'TEMPLATE';
-[%- locale.maketext('[asis,Imunify360] delivers sophisticated detection and display of security threats, powered by a self-learning firewall with herd immunity. It blocks attacks in real-time using a combination of technologies, including Advanced Firewall, smart Intrusion Detection and Protection System, Malware Detection, [asis,Proactive Defense™], Patch Management, Reputation Management and an advanced Captcha system.') %]
-[% IF data.include_kernelcare %]
-<br />
-<br />
-[%- locale.maketext('[asis,KernelCare] is free with the purchase of [asis,Imunify360] and will be automatically installed.') %]
-[% END %]
-<br />
-<br />
+[%- locale.maketext('[asis,Imunify360] delivers sophisticated detection and display of security threats, powered by a self-learning firewall with herd immunity. It blocks attacks in real-time using a combination of technologies, including:') %]
+    <ul>
+        <li>[%- locale.maketext('[asis,Proactive Defense™]') -%]</li>
+        <li>[%- locale.maketext('Smart Intrusion Detection and Protection System')-%]</li>
+        <li>[%- locale.maketext('Malware Detection')-%]</li>
+        [% IF data.include_kernelcare %]
+        <li>[%- locale.maketext('Patch Management via [asis,KernelCare]')-%]</li>
+        [% END %]
+        <li><a href="https://www.cpanel.net/products/add-ons/#imunify360" target="_new">[%- locale.maketext('Learn more about [asis,Imunify360]')%]</a></li>
+    </ul>
 [%
 IF data.price;
     locale.maketext( '[output,url,_1,Get Imunify360,_2,_3] for $[_4]/month.', data.path, 'target', '_parent', data.price );
