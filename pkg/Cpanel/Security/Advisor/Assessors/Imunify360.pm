@@ -123,8 +123,8 @@ TEMPLATE
 }
 
 sub _process_template {
-    my ($template, $args) = @_;
-    my ($ok, $output) = Cpanel::Template::process_template(
+    my ( $template, $args )   = @_;
+    my ( $ok,       $output ) = Cpanel::Template::process_template(
         'whostmgr',
         {
             'template' => $template,
@@ -132,15 +132,14 @@ sub _process_template {
         }
     );
     return $output if $ok;
-    die 'Template processing failed.';
+    die "Template processing failed: $output";
 }
 
 sub _suggest_imunify360 {
     my ($self) = @_;
 
-    if (   !Whostmgr::Imunify360::is_imunify360_licensed()
-         && Whostmgr::Imunify360::is_imunify360_installed() ) {
-
+    if (  !Whostmgr::Imunify360::is_imunify360_licensed()
+        && Whostmgr::Imunify360::is_imunify360_installed() ) {
         my $output = _process_template(
             _get_purchase_template(),
             {
@@ -149,16 +148,14 @@ sub _suggest_imunify360 {
         );
 
         $self->add_warn_advice(
-            key          => 'Imunify360_update_license',
-            text         => locale()->maketext(
-                'You have [asis,Imunify360] installed but the license has expired.'
-            ),
-            suggestion   =>
-            block_notify => 1,                                                                                                                                                                     # Do not send a notification about this
+            key        => 'Imunify360_update_license',
+            text       => locale()->maketext('You have [asis,Imunify360] installed but the license has expired.'),
+            suggestion => block_notify => 1,                                                                         # Do not send a notification about this
         );
     }
-    elsif ( !Whostmgr::Imunify360::is_imunify360_licensed()
-            && !Whostmgr::Imunify360::is_imunify360_installed() ) {
+    elsif (!Whostmgr::Imunify360::is_imunify360_licensed()
+        && !Whostmgr::Imunify360::is_imunify360_installed() ) {
+
         my $imunify360_price = Whostmgr::Imunify360::get_imunify360_price();
 
         my $output = _process_template(
@@ -166,16 +163,16 @@ sub _suggest_imunify360 {
             {
                 'path'               => $self->base_path('scripts12/purchase_imunify360_init'),
                 'price'              => $imunify360_price,
-                'include_kernelcare' =>   !Whostmgr::Imunify360::get_kernelcare_data()->{'disabled'}
-                                        && Whostmgr::Imunify360::is_centos_6_or_7(),
+                'include_kernelcare' => !Whostmgr::Imunify360::get_kernelcare_data()->{'disabled'}
+                  && Whostmgr::Imunify360::is_centos_6_or_7(),
             },
         );
 
         $self->add_warn_advice(
             key          => 'Imunify360_purchase',
-            text       => locale()->maketext('Use [asis,Imunify360] for complete protection against attacks on your servers.'),
+            text         => locale()->maketext('Use [asis,Imunify360] for complete protection against attacks on your servers.'),
             suggestion   => $$output,
-            block_notify => 1, # Do not send a notification about this                                                                                                                                                                                                                                                                                                                # Do not send a notification about this
+            block_notify => 1,                                                                                                      # Do not send a notification about this
         );
     }
     elsif ( !Whostmgr::Imunify360::is_imunify360_installed() ) {
@@ -184,7 +181,7 @@ sub _suggest_imunify360 {
             {
                 'path'               => $self->base_path('scripts12/install_imunify360'),
                 'include_kernelcare' => !Whostmgr::Imunify360::get_kernelcare_data()->{'disabled'}
-                                        && Whostmgr::Imunify360::is_centos_6_or_7(),
+                  && Whostmgr::Imunify360::is_centos_6_or_7(),
             }
         );
 
@@ -192,24 +189,25 @@ sub _suggest_imunify360 {
             key          => 'Imunify360_install',
             text         => locale()->maketext('You have an [asis,Imunify360] license, but you do not have [asis,Imunify360] installed on your server.'),
             suggestion   => $$output,
-            block_notify => 1,                                                                                                                                                                                                                                                                                                                 # Do not send a notification about this
+            block_notify => 1,                                                                                                                              # Do not send a notification about this
         );
     }
     else {
-        my $imunify_whm_link = locale()->maketext( '[output,url,_1,Open Imunify360,_2,_3].',
+        my $imunify_whm_link = locale()->maketext(
+            '[output,url,_1,Open Imunify360,_2,_3].',
             $self->base_path('/cgi/imunify/handlers/index.cgi#/admin/dashboard/incidents'),
             'target' => '_parent'
         );
 
         $self->add_good_advice(
-            key          => 'Imunify360_present',
-            text         => locale()->maketext(
+            key  => 'Imunify360_present',
+            text => locale()->maketext(
                 q{Your server is protected by [asis,Imunify360]. For more information, read the [output,url,_1,documentation,_2,_3].},
                 'https://www.imunify360.com/getting-started',
                 'target' => '_blank',
             ),
             suggestion   => $imunify_whm_link,
-            block_notify => 1,                                                                                                                                                                                                               # Do not send a notification about this
+            block_notify => 1,                   # Do not send a notification about this
         );
     }
 
