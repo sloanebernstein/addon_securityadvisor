@@ -75,7 +75,7 @@ sub _get_purchase_and_install_template {
         [% IF data.include_kernelcare %]
         <li>[%- locale.maketext('Patch Management via [asis,KernelCare]')-%]</li>
         [% END %]
-        <li><a href="https://www.cpanel.net/products/add-ons/#imunify360" target="_new">[%- locale.maketext('Learn more about [asis,Imunify360]')%]</a></li>
+        <li><a href="https://go.cpanel.net/buyimunify360" target="_new">[%- locale.maketext('Learn more about [asis,Imunify360]')%]</a></li>
     </ul>
 [%
 IF data.price;
