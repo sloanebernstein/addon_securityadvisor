@@ -89,7 +89,7 @@ sub _get_purchase_template {
     return << 'TEMPLATE';
 [%-
 locale.maketext(
-    'For updating the license go to the [output,url,_1,'cPanel Store',_2,_3].',
+    'To renew the license, visit the [output,url,_1,cPanel Store,_2,_3].',
     data.path,
     'target' => '_parent',
 )
@@ -97,7 +97,7 @@ locale.maketext(
 <br />
 <br />
 [%- locale.maketext(
-    'For uninstalling go to the [output,url,_1,Imunify360 Documentation,_2,_3].',
+    'To uninstall [asis,Imunify360], read the [output,url,_1,Imunify360 Documentation,_2,_3].',
     'https://docs.imunify360.com/uninstall/',
     'target' => '_blank',
 ) -%]
@@ -106,14 +106,6 @@ TEMPLATE
 
 sub _get_install_template {
     return << 'TEMPLATE';
-[%- locale.maketext('[asis,Imunify360] delivers sophisticated detection and display of security threats, powered by a self-learning firewall with herd immunity. It blocks attacks in real-time using a combination of technologies, including Advanced Firewall, smart Intrusion Detection and Protection System, Malware Detection, [asis,Proactive Defense™], Patch Management, Reputation Management and an advanced Captcha system.') %]
-[% IF data.include_kernelcare %]
-<br />
-<br />
-[%- locale.maketext('[asis,KernelCare] is free with the purchase of [asis,Imunify360] and will be automatically installed.') %]
-[% END %]
-<br />
-<br />
 [%- locale.maketext(
         '[output,url,_1,Install Imunify360,_2,_3].',
         data.path,
@@ -149,8 +141,9 @@ sub _suggest_imunify360 {
 
         $self->add_warn_advice(
             key        => 'Imunify360_update_license',
-            text       => locale()->maketext('You have [asis,Imunify360] installed but the license has expired.'),
-            suggestion => block_notify => 1,                                                                         # Do not send a notification about this
+            text       => locale()->maketext('[asis,Imunify360] is installed but the license is expired.'),
+            suggestion => $$output,
+            block_notify => 1,                                                                         # Do not send a notification about this
         );
     }
     elsif (!Whostmgr::Imunify360::is_imunify360_licensed()
@@ -169,10 +162,10 @@ sub _suggest_imunify360 {
         );
 
         $self->add_warn_advice(
-            key          => 'Imunify360_purchase',
-            text         => locale()->maketext('Use [asis,Imunify360] for complete protection against attacks on your servers.'),
-            suggestion   => $$output,
-            block_notify => 1,                                                                                                      # Do not send a notification about this
+            key        => 'Imunify360_purchase',
+            text       => locale()->maketext('Use [asis,Imunify360] for complete protection against attacks on your servers.'),
+            suggestion => $$output,
+            block_notify => 1,  # Do not send a notification about this
         );
     }
     elsif ( !Whostmgr::Imunify360::is_imunify360_installed() ) {
@@ -202,7 +195,7 @@ sub _suggest_imunify360 {
         $self->add_good_advice(
             key  => 'Imunify360_present',
             text => locale()->maketext(
-                q{Your server is protected by [asis,Imunify360]. For more information, read the [output,url,_1,documentation,_2,_3].},
+                q{Your server is protected by [asis,Imunify360]. For help getting started, read [output,url,_1,Imunify360’s documentation,_2,_3].},
                 'https://www.imunify360.com/getting-started',
                 'target' => '_blank',
             ),
