@@ -91,7 +91,8 @@ sub _get_purchase_template {
 locale.maketext(
     'To renew the license, visit the [output,url,_1,cPanel Store,_2,_3].',
     data.path,
-    'target' => '_parent',
+    'target',
+    '_parent',
 )
 -%]
 <br />
@@ -99,7 +100,8 @@ locale.maketext(
 [%- locale.maketext(
     'To uninstall [asis,Imunify360], read the [output,url,_1,Imunify360 Documentation,_2,_3].',
     'https://docs.imunify360.com/uninstall/',
-    'target' => '_blank',
+    'target',
+    '_blank',
 ) -%]
 TEMPLATE
 }
@@ -109,7 +111,8 @@ sub _get_install_template {
 [%- locale.maketext(
         '[output,url,_1,Install Imunify360,_2,_3].',
         data.path,
-        'target' => '_parent'
+        'target',
+        '_parent'
 ) -%]
 TEMPLATE
 }
