@@ -89,22 +89,31 @@ TEMPLATE
 
 sub _get_purchase_template {
     return << 'TEMPLATE';
-[%-
-locale.maketext(
-    'To renew the license, visit the [output,url,_1,cPanel Store,_2,_3].',
-    data.path,
-    'target',
-    '_parent',
-)
--%]
-<br />
-<br />
-[%- locale.maketext(
-    'To uninstall [asis,Imunify360], read the [output,url,_1,Imunify360 Documentation,_2,_3].',
-    'https://docs.imunify360.com/uninstall/',
-    'target',
-    '_blank',
-) -%]
+<style>
+#Imunify360_update_license blockquote {
+    margin:0
+}
+</style>
+<ul>
+    <li>
+    [%-
+    locale.maketext(
+        'To renew the license, visit the [output,url,_1,cPanel Store,_2,_3].',
+        data.path,
+        'target',
+        '_parent',
+    )
+    -%]
+    </li>
+    <li>
+    [%- locale.maketext(
+        'To uninstall [asis,Imunify360], read the [output,url,_1,Imunify360 Documentation,_2,_3].',
+        'https://docs.imunify360.com/uninstall/',
+        'target',
+        '_blank',
+    ) -%]
+    </li>
+</ul>
 TEMPLATE
 }
 
