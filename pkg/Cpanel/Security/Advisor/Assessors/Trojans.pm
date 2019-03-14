@@ -1,6 +1,6 @@
 package Cpanel::Security::Advisor::Assessors::Trojans;
 
-# Copyright (c) 2016, cPanel, Inc.
+# Copyright (c) 2019, cPanel, L.L.C.
 # All rights reserved.
 # http://cpanel.net
 #
@@ -18,7 +18,7 @@ package Cpanel::Security::Advisor::Assessors::Trojans;
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
 # ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-# DISCLAIMED. IN NO EVENT SHALL  BE LIABLE FOR ANY
+# DISCLAIMED. IN NO EVENT SHALL cPanel, L.L.C. BE LIABLE FOR ANY
 # DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
 # (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
 # LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
@@ -31,6 +31,7 @@ use Cpanel::SafeFind ();
 
 use base 'Cpanel::Security::Advisor::Assessors';
 use Cpanel::SafeRun::Simple;
+use Cpanel::SafeRun::Timed ();
 use Digest::SHA;
 
 our $LIBKEYUTILS_FILES_REF;
@@ -39,7 +40,7 @@ our $IPCS_REF;
 $IPCS_REF = get_ipcs_hash();
 
 sub version {
-    return '1.04';
+    return '1.05';
 }
 
 sub generate_advice {
@@ -59,7 +60,6 @@ sub generate_advice {
     $self->_check_for_ebury_ssh_G();
     $self->_check_for_ebury_ssh_banner();
     $self->_check_for_ebury_ssh_shmem();
-    $self->_check_for_ebury_root_file();
     return 1;
 }
 
