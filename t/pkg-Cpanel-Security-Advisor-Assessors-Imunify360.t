@@ -34,16 +34,19 @@ use lib "$FindBin::Bin/lib", "$FindBin::Bin/../pkg";
 
 use Cpanel::Version ();
 use Test::Assessor  ();
-use Test::More;
 use Test::Deep;
+use Test::More;
+use Test::NoWarnings;
 use Test::MockModule;
 use HTTP::Response;
 
 use Cpanel::Security::Advisor::Assessors::Imunify360 ();
 
+local $ENV{"REQUEST_URI"} = "";
+
 plan skip_all => 'Requires cPanel & WHM v80 or later' if Cpanel::Version::compare( Cpanel::Version::getversionnumber(), '<', '11.79' );
 
-plan tests => 7;
+plan tests => 7 + 1;
 
 my $mocked_version_module    = Test::MockModule->new('Cpanel::Version');
 my $mocked_imunify360_module = Test::MockModule->new('Whostmgr::Imunify360');
