@@ -37,6 +37,7 @@ use Cpanel::JSON            ();
 use Cpanel::Sys::OS::Check  ();
 use Cpanel::Sys::GetOS      ();
 use Whostmgr::Imunify360    ();
+use Cpanel::Template        ();
 
 use Cpanel::Imports;
 
