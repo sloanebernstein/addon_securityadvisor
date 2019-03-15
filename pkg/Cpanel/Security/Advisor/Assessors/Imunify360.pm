@@ -129,12 +129,12 @@ TEMPLATE
 }
 
 sub _process_template {
-    my ( $template, $args )   = @_;
+    my ( $template_ref, $args )   = @_;
     my ( $ok,       $output ) = Cpanel::Template::process_template(
         'whostmgr',
         {
-            'template' => $template,
-            'data'     => $args,
+            'template_file' => $template_ref,
+            'data'          => $args,
         }
     );
     return $output if $ok;
@@ -147,7 +147,7 @@ sub _suggest_imunify360 {
     if (  !Whostmgr::Imunify360::is_imunify360_licensed()
         && Whostmgr::Imunify360::is_imunify360_installed() ) {
         my $output = _process_template(
-            _get_purchase_template(),
+            \_get_purchase_template(),
             {
                 'path' => $self->base_path('scripts12/purchase_imunify360_init'),
             },
@@ -166,7 +166,7 @@ sub _suggest_imunify360 {
         my $imunify360_price = Whostmgr::Imunify360::get_imunify360_price();
 
         my $output = _process_template(
-            _get_purchase_and_install_template(),
+            \_get_purchase_and_install_template(),
             {
                 'path'               => $self->base_path('scripts12/purchase_imunify360_init'),
                 'price'              => $imunify360_price,
@@ -184,7 +184,7 @@ sub _suggest_imunify360 {
     }
     elsif ( !Whostmgr::Imunify360::is_imunify360_installed() ) {
         my $output = _process_template(
-            _get_install_template(),
+            \_get_install_template(),
             {
                 'path'               => $self->base_path('scripts12/install_imunify360'),
                 'include_kernelcare' => !Whostmgr::Imunify360::get_kernelcare_data()->{'disabled'}
