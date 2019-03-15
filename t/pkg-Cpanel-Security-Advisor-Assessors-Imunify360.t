@@ -101,9 +101,9 @@ subtest 'When Imunify360 is enabled in Manage2' => sub {
     plan tests => 1;
 
     $mocked_HTTP->redefine( 'get' => sub { $response_imunify_enabled } );
-    my $advice = get_advice();
+    my $advice = get_advice()->[0];
 
-    ok( exists $advice->[0]->{'advice'}, "Should return the Imunify360 advice" );
+    ok( exists $advice->{'advice'}, "Should return the Imunify360 advice" );
 };
 
 $mocked_imunify360_module->redefine( is_imunify360_licensed  => sub { 0 } );
@@ -115,32 +115,17 @@ subtest 'When Imunify360 is not installed or licensed' => sub {
     $mocked_imunify360_module->redefine( is_imunify360_licensed => sub { 0 } );
 
     my $advice   = get_advice();
-    my $expected = [
-        {
-            'advice' => {
-                'block_notify' => 1,
-                'key'          => 'Imunify360_purchase',
-                'suggestion'   => 'Imunify360 delivers sophisticated detection and display of security threats, powered by a self-learning firewall with herd immunity. It blocks attacks in real-time using a combination of technologies, including:
-    <ul>
-        <li>Proactive Defense™</li>
-        <li>Smart Intrusion Detection and Protection System</li>
-        <li>Malware Detection</li>
-        
-        <li>Patch Management via KernelCare</li>
-        
-        <li><a href="https://go.cpanel.net/buyimunify360" target="_new">Learn more about Imunify360</a></li>
-    </ul>
-Get Imunify360 (../scripts12/purchase_imunify360_init).
-',
-                'text' => 'Use Imunify360 for complete protection against attacks on your servers.',
-                'type' => 4
-            },
-            'function' => '_suggest_imunify360',
-            'module'   => 'Cpanel::Security::Advisor::Assessors::Imunify360'
-        }
-    ];
+    my $expected = {
+        'advice' => {
+            'key'          => 'Imunify360_purchase',
+            'block_notify' => ignore(),
+            'suggestion'   => ignore(),
+            'text'         => ignore(),
+            'type'         => ignore(),
+        },
+    };
 
-    cmp_deeply( $advice, $expected, "It should advice buying an Imunify360 license" ) or diag explain $advice;
+    cmp_deeply( $advice->[0], superhashof($expected), "It should advice buying an Imunify360 license" ) or diag explain $advice;
 };
 
 subtest 'When has a license but Imunify360 is not installed' => sub {
@@ -150,21 +135,17 @@ subtest 'When has a license but Imunify360 is not installed' => sub {
     $mocked_imunify360_module->redefine( is_imunify360_installed => sub { 0 } );
 
     my $advice   = get_advice();
-    my $expected = [
-        {
-            'advice' => {
-                'block_notify' => 1,
-                'key'          => 'Imunify360_install',
-                'suggestion'   => 'Install Imunify360 (../scripts12/install_imunify360).',
-                'text'         => 'You have an Imunify360 license, but you do not have Imunify360 installed on your server.',
-                'type'         => 4
-            },
-            'function' => '_suggest_imunify360',
-            'module'   => 'Cpanel::Security::Advisor::Assessors::Imunify360'
-        }
-    ];
+    my $expected = {
+        'advice' => {
+            'key'          => 'Imunify360_install',
+            'block_notify' => ignore(),
+            'suggestion'   => ignore(),
+            'text'         => ignore(),
+            'type'         => ignore(),
+        },
+    };
 
-    cmp_deeply( $advice, $expected, "It should advice to install Imunify360" ) or diag explain $advice;
+    cmp_deeply( $advice->[0], superhashof($expected), "It should advice to install Imunify360" ) or diag explain $advice;
 };
 
 subtest 'When Imunify360 is installed but not licensed' => sub {
@@ -174,30 +155,17 @@ subtest 'When Imunify360 is installed but not licensed' => sub {
     $mocked_imunify360_module->redefine( is_imunify360_installed => sub { 1 } );
 
     my $advice   = get_advice();
-    my $expected = [
-        {
-            'advice' => {
-                'block_notify' => 1,
-                'key'          => 'Imunify360_update_license',
-                'suggestion'   => '<style>
-#Imunify360_update_license blockquote {
-    margin:0
-}
-</style>
-<ul>
-    <li>To purchase a license, visit the cPanel Store (../scripts12/purchase_imunify360_init).    </li>
-    <li>To uninstall Imunify360, read the Imunify360 Documentation (https://docs.imunify360.com/uninstall/).    </li>
-</ul>
-',
-                'text' => 'Imunify360 is installed but you do not have a current license.',
-                'type' => 4
-            },
-            'function' => '_suggest_imunify360',
-            'module'   => 'Cpanel::Security::Advisor::Assessors::Imunify360'
-        }
-    ];
+    my $expected = {
+        'advice' => {
+            'key'          => 'Imunify360_update_license',
+            'block_notify' => ignore(),
+            'suggestion'   => ignore(),
+            'text'         => ignore(),
+            'type'         => ignore(),
+        },
+    };
 
-    cmp_deeply( $advice, $expected, "It should advice to renew the license" ) or diag explain $advice;
+    cmp_deeply( $advice->[0], superhashof($expected), "It should advice to renew the license" ) or diag explain $advice;
 };
 
 subtest 'When Imunify360 is installed and licensed' => sub {
@@ -207,21 +175,17 @@ subtest 'When Imunify360 is installed and licensed' => sub {
     $mocked_imunify360_module->redefine( is_imunify360_installed => sub { 1 } );
 
     my $advice   = get_advice();
-    my $expected = [
-        {
-            'advice' => {
-                'block_notify' => 1,
-                'key'          => 'Imunify360_present',
-                'suggestion'   => 'Open Imunify360 (..//cgi/imunify/handlers/index.cgi#/admin/dashboard/incidents).',
-                'text'         => 'Your server is protected by Imunify360. For help getting started, read Imunify360’s documentation (https://www.imunify360.com/getting-started).',
-                'type'         => 1
-            },
-            'function' => '_suggest_imunify360',
-            'module'   => 'Cpanel::Security::Advisor::Assessors::Imunify360'
-        }
-    ];
+    my $expected = {
+        'advice' => {
+            'key'          => 'Imunify360_present',
+            'block_notify' => ignore(),
+            'suggestion'   => ignore(),
+            'text'         => ignore(),
+            'type'         => ignore(),
+        },
+    };
 
-    cmp_deeply( $advice, $expected, "It should say that the server is protected" ) or diag explain $advice;
+    cmp_deeply( $advice->[0], superhashof($expected), "It should say that the server is protected" ) or diag explain $advice;
 };
 
 sub get_advice {
