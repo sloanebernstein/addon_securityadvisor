@@ -41,34 +41,21 @@ END; %]
         margin-bottom: 5px;
     }
 </style>
-<table style="width: 0 auto;" width="100%">
-    <tbody>
-        <tr>
-            <td align="left" width="27%">
-                [% locale.maketext('Start Time:') %]
-                <span id="start_time">---</span>
-            </td>
-            <td align="center" width="36%">
-                <button
-                    type="button"
-                    class="btn btn-primary"
-                    id="scan_button"
-                    onclick="scanner.run_scan()">
-                    [% locale.maketext('Scan Again') %]
-                </button>
-                <img id="spinner" style="display:none; margin-bottom: 3px; margin-right: 4px;" align="absmiddle" src="[%- cp_security_token -%]/images/report-spinner.gif" />
-                <span id="current_item">---</span>
-            </td>
-            <td align="center" width="10%">
-                [% locale.maketext("[output,strong,Version:] [_1]", security_advisor_version) %]
-            </td>
-            <td align="right" width="27%">
-                [% locale.maketext('Finish Time:') %]
-                <span id="end_time">---</span>
-            </td>
-        </tr>
-    </tbody>
-</table>
+
+<span>
+    <button
+        type="button"
+        class="btn btn-primary"
+        id="scan_button"
+        onclick="scanner.run_scan()">
+        [% locale.maketext('Scan Again') %]
+    </button>
+    <img id="spinner" style="display:none; margin-bottom: 3px; margin-right: 4px;" align="absmiddle" src="[%- cp_security_token -%]/images/report-spinner.gif" />
+    <span id="current_item">---</span>
+</span>
+<span class="pull-right">
+    [% locale.maketext("[output,strong,Version:] [_1]", security_advisor_version) %]
+</span>
 
 
 <div id="securityadvice">
@@ -171,8 +158,6 @@ Scanner.prototype.run_scan = function() {
         document.getElementById('securityadvice_warn').innerHTML = "";
         document.getElementById('securityadvice_info').innerHTML = "";
         document.getElementById('securityadvice_success').innerHTML = "";
-        document.getElementById('start_time').innerHTML = "---";
-        document.getElementById('end_time').innerHTML = "---";
 
         var current_time = new Date;
         var scan_channel = "/addon_securityadvisor/" + current_time.getTime();
@@ -248,11 +233,9 @@ Scanner.prototype.parse_comet_message = function(data) {
         if (data.state == 0) {
             document.getElementById('scan_button').style.display='none';
             this.estimated_runtimes['remaining'] = this.estimated_runtimes['total'];
-            document.getElementById('start_time').innerHTML = current_time;
             document.getElementById('spinner').style.display='';
         }
         else {
-            document.getElementById('end_time').innerHTML = current_time;
             document.getElementById('current_item').innerHTML = '';
             document.getElementById('spinner').style.display='none';
         }
