@@ -50,8 +50,9 @@ END; %]
         onclick="scanner.run_scan()">
         [% locale.maketext('Scan Again') %]
     </button>
-    <img id="spinner" style="display:none; margin-bottom: 3px; margin-right: 4px;" align="absmiddle" src="[%- cp_security_token -%]/images/report-spinner.gif" />
-    <span id="current_item">---</span>
+    <i id="spinner" style="display:none;" class="fas fa-sync fa-spin text-info" aria-hidden="true"></i>
+
+    <span id="current_item"></span>
 </span>
 <span class="pull-right">
     [% locale.maketext("[output,strong,Version:] [_1]", security_advisor_version) %]
