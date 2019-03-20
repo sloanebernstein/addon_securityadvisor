@@ -131,7 +131,7 @@ TEMPLATE
 
 sub _process_template {
     my ( $template_ref, $args )   = @_;
-    my ( $ok,       $output ) = Cpanel::Template::process_template(
+    my ( $ok,           $output ) = Cpanel::Template::process_template(
         'whostmgr',
         {
             'template_file' => $template_ref,
@@ -155,10 +155,10 @@ sub _suggest_imunify360 {
         );
 
         $self->add_warn_advice(
-            key        => 'Imunify360_update_license',
-            text       => locale()->maketext('[asis,Imunify360] is installed but you do not have a current license.'),
-            suggestion => $$output,
-            block_notify => 1,                                                                         # Do not send a notification about this
+            key          => 'Imunify360_update_license',
+            text         => locale()->maketext('[asis,Imunify360] is installed but you do not have a current license.'),
+            suggestion   => $$output,
+            block_notify => 1,                                                                                             # Do not send a notification about this
         );
     }
     elsif (!Whostmgr::Imunify360::is_imunify360_licensed()
@@ -177,10 +177,10 @@ sub _suggest_imunify360 {
         );
 
         $self->add_warn_advice(
-            key        => 'Imunify360_purchase',
-            text       => locale()->maketext('Use [asis,Imunify360] for complete protection against attacks on your servers.'),
-            suggestion => $$output,
-            block_notify => 1,  # Do not send a notification about this
+            key          => 'Imunify360_purchase',
+            text         => locale()->maketext('Use [asis,Imunify360] for complete protection against attacks on your servers.'),
+            suggestion   => $$output,
+            block_notify => 1,                                                                                                      # Do not send a notification about this
         );
     }
     elsif ( !Whostmgr::Imunify360::is_imunify360_installed() ) {
@@ -208,14 +208,16 @@ sub _suggest_imunify360 {
         );
 
         $self->add_good_advice(
-            key  => 'Imunify360_present',
-            text => locale()->maketext(
-                q{Your server is protected by [asis,Imunify360]. For help getting started, read [output,url,_1,Imunify360’s documentation,_2,_3].},
+            key        => 'Imunify360_present',
+            text       => locale()->maketext(q{Your server is protected by [asis,Imunify360].}),
+            suggestion => locale()->maketext(
+                q{For help getting started, read [output,url,_1,Imunify360’s documentation,_2,_3].},
                 'https://www.imunify360.com/getting-started',
                 'target' => '_blank',
-            ),
-            suggestion   => $imunify_whm_link,
-            block_notify => 1,                   # Do not send a notification about this
+              )
+              . '<br><br>'
+              . $imunify_whm_link,
+            block_notify => 1,    # Do not send a notification about this
         );
     }
 
