@@ -109,7 +109,7 @@ sub _get_purchase_template {
     <li>
     [%- locale.maketext(
         'To uninstall [asis,Imunify360], read the [output,url,_1,Imunify360 Documentation,_2,_3].',
-        'https://docs.imunify360.com/uninstall/',
+        'https://go.cpanel.net/imunify360uninstall',
         'target',
         '_blank',
     ) -%]
@@ -212,7 +212,7 @@ sub _suggest_imunify360 {
             text       => locale()->maketext(q{Your server is protected by [asis,Imunify360].}),
             suggestion => locale()->maketext(
                 q{For help getting started, read [output,url,_1,Imunify360’s documentation,_2,_3].},
-                'https://www.imunify360.com/getting-started',
+                'https://go.cpanel.net/imunify360gettingstarted',
                 'target' => '_blank',
               )
               . '<br><br>'
