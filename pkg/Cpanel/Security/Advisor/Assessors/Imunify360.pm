@@ -78,13 +78,7 @@ sub _get_purchase_and_install_template {
         [% END %]
         <li><a href="https://go.cpanel.net/buyimunify360" target="_new">[%- locale.maketext('Learn more about [asis,Imunify360]')%]</a></li>
     </ul>
-[%
-IF data.price;
-    locale.maketext( '[output,url,_1,Get Imunify360,_2,_3] for $[_4]/month.', data.path, 'target', '_parent', data.price );
-ELSE;
-    locale.maketext( '[output,url,_1,Get Imunify360,_2,_3].', data.path, 'target', '_parent');
-END;
-%]
+[% data.link %]
 TEMPLATE
 }
 
@@ -97,14 +91,7 @@ sub _get_purchase_template {
 </style>
 <ul>
     <li>
-    [%-
-    locale.maketext(
-        'To purchase a license, visit the [output,url,_1,cPanel Store,_2,_3].',
-        data.path,
-        'target',
-        '_parent',
-    )
-    -%]
+    [%- data.link -%]
     </li>
     <li>
     [%- locale.maketext(
@@ -142,20 +129,38 @@ sub _process_template {
     die "Template processing failed: $output";
 }
 
+sub create_purchase_link {
+    my ($self, $cp_url, $is_installed) = @_;
+
+    my $custom_url = $imunify->get_custom_url();
+    my $price = $imunify->get_product_price();
+
+    if ($custom_url) {
+        return locale()->maketext('[output,url,_1,Get Imunify360,_2,_3].', $custom_url, 'target', '_blank',);
+    }
+    if ($is_installed) {
+        return locale()->maketext('To purchase a license, visit the [output,url,_1,cPanel Store,_2,_3].', $cp_url, 'target', '_parent',);
+    }
+    if ($price) {
+        return locale()->maketext('[output,url,_1,Get Imunify360,_2,_3] for $[_4]/month.', $cp_url, 'target', '_parent', $price);
+    }
+    return locale()->maketext('[output,url,_1,Get Imunify360,_2,_3].', $cp_url, 'target', '_parent',);
+}
+
 sub _suggest_imunify360 {
     my ($self) = @_;
 
     my $licensed = $imunify->is_product_licensed();
     my $installed = $imunify->is_product_installed();
-    my $custom_url = $imunify->get_custom_url();
-    my $price = $custom_url ? '' : $imunify->get_product_price();
-    my $store_link = $custom_url ? $custom_url : $self->base_path('scripts12/purchase_imunify360_init');
+    my $is_kernelcare_needed = !$imunify->get_manage2_data('kernelcare')->{'disabled'} && $imunify->is_centos_6_or_7();
+    my $cp_url = $self->base_path('scripts12/purchase_imunify360_init');
+    my $link = create_purchase_link($cp_url, $installed);
 
     if ( !$licensed && $installed ) {
         my $output = _process_template(
             \_get_purchase_template(),
             {
-                'path' => , $store_link,
+                'link' => $link,
             },
         );
 
@@ -171,9 +176,8 @@ sub _suggest_imunify360 {
         my $output = _process_template(
             \_get_purchase_and_install_template(),
             {
-                'path'               => $self->base_path('scripts12/purchase_imunify360_init'),
-                'price'              => $price,
-                'include_kernelcare' => !$imunify->get_manage2_data('kernelcare')->{'disabled'} && $imunify->is_centos_6_or_7(),
+                'link' => $link,
+                'include_kernelcare' => $is_kernelcare_needed,
             },
         );
 
@@ -189,7 +193,7 @@ sub _suggest_imunify360 {
             \_get_install_template(),
             {
                 'path'               => $self->base_path('scripts12/install_imunify360'),
-                'include_kernelcare' => !$imunify->get_manage2_data('kernelcare')->{'disabled'} && $imunify->is_centos_6_or_7(),
+                'include_kernelcare' => $is_kernelcare_needed,
             }
         );
 
