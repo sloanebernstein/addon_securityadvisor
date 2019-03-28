@@ -147,12 +147,15 @@ sub _suggest_imunify360 {
 
     my $licensed = $imunify->is_product_licensed();
     my $installed = $imunify->is_product_installed();
+    my $custom_url = $imunify->get_custom_url();
+    my $price = $custom_url ? '' : $imunify->get_product_price();
+    my $store_link = $custom_url ? $custom_url : $self->base_path('scripts12/purchase_imunify360_init');
 
     if ( !$licensed && $installed ) {
         my $output = _process_template(
             \_get_purchase_template(),
             {
-                'path' => $self->base_path('scripts12/purchase_imunify360_init'),
+                'path' => , $store_link,
             },
         );
 
@@ -169,9 +172,8 @@ sub _suggest_imunify360 {
             \_get_purchase_and_install_template(),
             {
                 'path'               => $self->base_path('scripts12/purchase_imunify360_init'),
-                'price'              => $imunify->get_product_price(),
-                'include_kernelcare' => !$imunify->get_manage2_data('kernelcare')->{'disabled'}
-                  && Whostmgr::Imunify360::is_centos_6_or_7(),
+                'price'              => $price,
+                'include_kernelcare' => !$imunify->get_manage2_data('kernelcare')->{'disabled'} && $imunify->is_centos_6_or_7(),
             },
         );
 
@@ -187,8 +189,7 @@ sub _suggest_imunify360 {
             \_get_install_template(),
             {
                 'path'               => $self->base_path('scripts12/install_imunify360'),
-                'include_kernelcare' => !$imunify->get_manage2_data('kernelcare')->{'disabled'}
-                  && Whostmgr::Imunify360::is_centos_6_or_7(),
+                'include_kernelcare' => !$imunify->get_manage2_data('kernelcare')->{'disabled'} && $imunify->is_centos_6_or_7(),
             }
         );
 
