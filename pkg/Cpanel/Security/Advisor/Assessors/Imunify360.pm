@@ -43,14 +43,13 @@ use Cpanel::Imports;
 
 our $IMUNIFY360_MINIMUM_CPWHM_VERSION = '11.79';    # we want it usable on both development and release builds for 11.80
 
-my $imunify = Whostmgr::Imunify360->new();
-
 sub version {
     return '1.00';
 }
 
 sub generate_advice {
     my ($self) = @_;
+    my $imunify = Whostmgr::Imunify360->new();
 
     eval {
         if ( Cpanel::Version::compare( Cpanel::Version::getversionnumber(), '>=', $IMUNIFY360_MINIMUM_CPWHM_VERSION )
@@ -78,7 +77,7 @@ sub _get_purchase_and_install_template {
         [% END %]
         <li><a href="https://go.cpanel.net/buyimunify360" target="_new">[%- locale.maketext('Learn more about [asis,Imunify360]')%]</a></li>
     </ul>
-[% data.link %]
+[%- data.link -%]
 TEMPLATE
 }
 
@@ -130,15 +129,18 @@ sub _process_template {
 }
 
 sub create_purchase_link {
-    my ($self, $cp_url, $is_installed) = @_;
+    my ($self) = @_;
 
+    my $imunify = Whostmgr::Imunify360->new();
+    my $installed = $imunify->is_product_installed();
     my $custom_url = $imunify->get_custom_url();
     my $price = $imunify->get_product_price();
+    my $cp_url = $self->base_path('scripts12/purchase_imunify360_init');
 
     if ($custom_url) {
         return locale()->maketext('[output,url,_1,Get Imunify360,_2,_3].', $custom_url, 'target', '_blank',);
     }
-    if ($is_installed) {
+    if ($installed) {
         return locale()->maketext('To purchase a license, visit the [output,url,_1,cPanel Store,_2,_3].', $cp_url, 'target', '_parent',);
     }
     if ($price) {
@@ -150,11 +152,11 @@ sub create_purchase_link {
 sub _suggest_imunify360 {
     my ($self) = @_;
 
+    my $imunify = Whostmgr::Imunify360->new();
     my $licensed = $imunify->is_product_licensed();
     my $installed = $imunify->is_product_installed();
-    my $is_kernelcare_needed = !$imunify->get_manage2_data('kernelcare')->{'disabled'} && $imunify->is_centos_6_or_7();
-    my $cp_url = $self->base_path('scripts12/purchase_imunify360_init');
-    my $link = create_purchase_link($cp_url, $installed);
+    my $is_kernelcare_needed = $imunify->needs_kernelcare();
+    my $link = $self->create_purchase_link();
 
     if ( !$licensed && $installed ) {
         my $output = _process_template(
