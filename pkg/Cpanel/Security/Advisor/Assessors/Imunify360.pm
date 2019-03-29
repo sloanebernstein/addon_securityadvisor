@@ -131,32 +131,32 @@ sub _process_template {
 sub create_purchase_link {
     my ($self) = @_;
 
-    my $imunify = Whostmgr::Imunify360->new();
-    my $installed = $imunify->is_product_installed();
+    my $imunify    = Whostmgr::Imunify360->new();
+    my $installed  = $imunify->is_product_installed();
     my $custom_url = $imunify->get_custom_url();
-    my $price = $imunify->get_product_price();
-    my $cp_url = $self->base_path('scripts12/purchase_imunify360_init');
+    my $price      = $imunify->get_product_price();
+    my $cp_url     = $self->base_path('scripts12/purchase_imunify360_init');
 
     if ($custom_url) {
-        return locale()->maketext('[output,url,_1,Get Imunify360,_2,_3].', $custom_url, 'target', '_blank',);
+        return locale()->maketext( '[output,url,_1,Get Imunify360,_2,_3].', $custom_url, 'target', '_blank', );
     }
     if ($installed) {
-        return locale()->maketext('To purchase a license, visit the [output,url,_1,cPanel Store,_2,_3].', $cp_url, 'target', '_parent',);
+        return locale()->maketext( 'To purchase a license, visit the [output,url,_1,cPanel Store,_2,_3].', $cp_url, 'target', '_parent', );
     }
     if ($price) {
-        return locale()->maketext('[output,url,_1,Get Imunify360,_2,_3] for $[_4]/month.', $cp_url, 'target', '_parent', $price);
+        return locale()->maketext( '[output,url,_1,Get Imunify360,_2,_3] for $[_4]/month.', $cp_url, 'target', '_parent', $price );
     }
-    return locale()->maketext('[output,url,_1,Get Imunify360,_2,_3].', $cp_url, 'target', '_parent',);
+    return locale()->maketext( '[output,url,_1,Get Imunify360,_2,_3].', $cp_url, 'target', '_parent', );
 }
 
 sub _suggest_imunify360 {
     my ($self) = @_;
 
-    my $imunify = Whostmgr::Imunify360->new();
-    my $licensed = $imunify->is_product_licensed();
-    my $installed = $imunify->is_product_installed();
+    my $imunify              = Whostmgr::Imunify360->new();
+    my $licensed             = $imunify->is_product_licensed();
+    my $installed            = $imunify->is_product_installed();
     my $is_kernelcare_needed = $imunify->needs_kernelcare();
-    my $link = $self->create_purchase_link();
+    my $link                 = $self->create_purchase_link();
 
     if ( !$licensed && $installed ) {
         my $output = _process_template(
@@ -178,7 +178,7 @@ sub _suggest_imunify360 {
         my $output = _process_template(
             \_get_purchase_and_install_template(),
             {
-                'link' => $link,
+                'link'               => $link,
                 'include_kernelcare' => $is_kernelcare_needed,
             },
         );
@@ -190,7 +190,7 @@ sub _suggest_imunify360 {
             block_notify => 1,                                                                                                      # Do not send a notification about this
         );
     }
-    elsif ( $licensed && !$installed  ) {
+    elsif ( $licensed && !$installed ) {
         my $output = _process_template(
             \_get_install_template(),
             {
