@@ -152,7 +152,7 @@ sub _suggest_imunify360 {
 
     my $licensed = $imunify->is_product_licensed();
     my $installed = $imunify->is_product_installed();
-    my $is_kernelcare_needed = !$imunify->get_manage2_data('kernelcare')->{'disabled'} && $imunify->is_centos_6_or_7();
+    my $is_kernelcare_needed = $imunify->needs_kernelcare();
     my $cp_url = $self->base_path('scripts12/purchase_imunify360_init');
     my $link = create_purchase_link($cp_url, $installed);
 
