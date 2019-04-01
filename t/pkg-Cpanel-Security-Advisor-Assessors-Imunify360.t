@@ -163,7 +163,7 @@ subtest 'When the custom URL is present' => sub {
 
     my $advice = get_advice();
 
-    like( $advice->[0]->{advice}->{suggestion} =~ qr{https://example.com}, "It should change the link href" );
+    like( $advice->[0]->{advice}->{suggestion}, qr{https://example.com}, "It should change the link href" );
 };
 
 subtest 'When the custom URL is NOT present' => sub {
@@ -175,7 +175,7 @@ subtest 'When the custom URL is NOT present' => sub {
 
     my $advice = get_advice();
 
-    like( $advice->[0]->{advice}->{suggestion} =~ qr{scripts12/purchase_imunify360_init}, "It should link to the init script" );
+    like( $advice->[0]->{advice}->{suggestion}, qr{scripts12/purchase_imunify360_init}, "It should link to the init script" );
 };
 
 sub get_advice {
