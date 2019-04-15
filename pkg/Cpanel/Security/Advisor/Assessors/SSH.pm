@@ -46,7 +46,7 @@ sub generate_advice {
 sub _check_for_ssh_settings {
     my ($self) = @_;
 
-    my $scfg = Whostmgr::Services::SSH::Config->new();
+    my $scfg        = Whostmgr::Services::SSH::Config->new();
     my $sshd_config = $scfg->get_config();
     if ( $scfg->get_config('PasswordAuthentication') =~ m/yes/i || $scfg->get_config('ChallengeResponseAuthentication') =~ m/yes/i ) {
         $self->add_bad_advice(
@@ -68,7 +68,7 @@ sub _check_for_ssh_settings {
 
     }
 
-    if ( $scfg->get_config('PermitRootLogin') =~ m/yes/i || !$scfg->('PermitRootLogin') ) {
+    if ( !$scfg->get_config('PermitRootLogin') || $scfg->get_config('PermitRootLogin') =~ m/yes/i ) {
         $self->add_bad_advice(
             'key'        => 'SSH_direct_root_login_permitted',
             'text'       => $self->_lh->maketext('SSH direct root logins are permitted.'),
