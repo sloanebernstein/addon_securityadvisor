@@ -209,7 +209,7 @@ sub _suggest_imunify360 {
     else {
         my $imunify_whm_link = locale()->maketext(
             '[output,url,_1,Open Imunify360,_2,_3].',
-            $self->base_path('/cgi/imunify/handlers/index.cgi#/admin/dashboard/incidents'),
+            $self->base_path('/cgi/imunify/handlers/index.cgi'),
             'target' => '_parent'
         );
 
