@@ -36,7 +36,6 @@ use Cpanel::HTTP::Client    ();
 use Cpanel::JSON            ();
 use Cpanel::Sys::OS::Check  ();
 use Cpanel::Sys::GetOS      ();
-use Whostmgr::Imunify360    ();
 use Cpanel::Template        ();
 
 use Cpanel::Imports;
@@ -49,11 +48,12 @@ sub version {
 
 sub generate_advice {
     my ($self) = @_;
-    my $imunify = Whostmgr::Imunify360->new();
 
     eval {
-        if ( Cpanel::Version::compare( Cpanel::Version::getversionnumber(), '>=', $IMUNIFY360_MINIMUM_CPWHM_VERSION )
-            && $imunify->should_offer() ) {
+        if (   Cpanel::Version::compare( Cpanel::Version::getversionnumber(), '>=', $IMUNIFY360_MINIMUM_CPWHM_VERSION )
+            && _is_imunify360_supported()
+            && require Whostmgr::Imunify360
+            && !Whostmgr::Imunify360::get_imunify360_data()->{'disabled'} ) {
             $self->_suggest_imunify360;
         }
     };
@@ -77,7 +77,13 @@ sub _get_purchase_and_install_template {
         [% END %]
         <li><a href="https://go.cpanel.net/buyimunify360" target="_new">[%- locale.maketext('Learn more about [asis,Imunify360]')%]</a></li>
     </ul>
-[%- data.link -%]
+[%
+IF data.price;
+    locale.maketext( '[output,url,_1,Get Imunify360,_2,_3] for $[_4]/month.', data.path, 'target', '_parent', data.price );
+ELSE;
+    locale.maketext( '[output,url,_1,Get Imunify360,_2,_3].', data.path, 'target', '_parent');
+END;
+%]
 TEMPLATE
 }
 
@@ -90,7 +96,14 @@ sub _get_purchase_template {
 </style>
 <ul>
     <li>
-    [%- data.link -%]
+    [%-
+    locale.maketext(
+        'To purchase a license, visit the [output,url,_1,cPanel Store,_2,_3].',
+        data.path,
+        'target',
+        '_parent',
+    )
+    -%]
     </li>
     <li>
     [%- locale.maketext(
@@ -128,41 +141,15 @@ sub _process_template {
     die "Template processing failed: $output";
 }
 
-sub create_purchase_link {
-    my ($self) = @_;
-
-    my $imunify    = Whostmgr::Imunify360->new();
-    my $installed  = $imunify->is_product_installed();
-    my $custom_url = $imunify->get_custom_url();
-    my $price      = $imunify->get_product_price();
-    my $cp_url     = $self->base_path('scripts12/purchase_imunify360_init');
-
-    if ($custom_url) {
-        return locale()->maketext( '[output,url,_1,Get Imunify360,_2,_3].', $custom_url, 'target', '_blank', );
-    }
-    if ($installed) {
-        return locale()->maketext( 'To purchase a license, visit the [output,url,_1,cPanel Store,_2,_3].', $cp_url, 'target', '_parent', );
-    }
-    if ($price) {
-        return locale()->maketext( '[output,url,_1,Get Imunify360,_2,_3] for $[_4]/month.', $cp_url, 'target', '_parent', $price );
-    }
-    return locale()->maketext( '[output,url,_1,Get Imunify360,_2,_3].', $cp_url, 'target', '_parent', );
-}
-
 sub _suggest_imunify360 {
     my ($self) = @_;
 
-    my $imunify              = Whostmgr::Imunify360->new();
-    my $licensed             = $imunify->is_product_licensed();
-    my $installed            = $imunify->is_product_installed();
-    my $is_kernelcare_needed = $imunify->needs_kernelcare();
-    my $link                 = $self->create_purchase_link();
-
-    if ( !$licensed && $installed ) {
+    if (  !Whostmgr::Imunify360::is_imunify360_licensed()
+        && Whostmgr::Imunify360::is_imunify360_installed() ) {
         my $output = _process_template(
             \_get_purchase_template(),
             {
-                'link' => $link,
+                'path' => $self->base_path('scripts12/purchase_imunify360_init'),
             },
         );
 
@@ -173,13 +160,18 @@ sub _suggest_imunify360 {
             block_notify => 1,                                                                                             # Do not send a notification about this
         );
     }
-    elsif ( !$licensed && !$installed ) {
+    elsif (!Whostmgr::Imunify360::is_imunify360_licensed()
+        && !Whostmgr::Imunify360::is_imunify360_installed() ) {
+
+        my $imunify360_price = Whostmgr::Imunify360::get_imunify360_price();
 
         my $output = _process_template(
             \_get_purchase_and_install_template(),
             {
-                'link'               => $link,
-                'include_kernelcare' => $is_kernelcare_needed,
+                'path'               => $self->base_path('scripts12/purchase_imunify360_init'),
+                'price'              => $imunify360_price,
+                'include_kernelcare' => !Whostmgr::Imunify360::get_kernelcare_data()->{'disabled'}
+                  && Whostmgr::Imunify360::is_centos_6_or_7(),
             },
         );
 
@@ -190,12 +182,13 @@ sub _suggest_imunify360 {
             block_notify => 1,                                                                                                      # Do not send a notification about this
         );
     }
-    elsif ( $licensed && !$installed ) {
+    elsif ( !Whostmgr::Imunify360::is_imunify360_installed() ) {
         my $output = _process_template(
             \_get_install_template(),
             {
                 'path'               => $self->base_path('scripts12/install_imunify360'),
-                'include_kernelcare' => $is_kernelcare_needed,
+                'include_kernelcare' => !Whostmgr::Imunify360::get_kernelcare_data()->{'disabled'}
+                  && Whostmgr::Imunify360::is_centos_6_or_7(),
             }
         );
 
@@ -228,6 +221,13 @@ sub _suggest_imunify360 {
     }
 
     return 1;
+}
+
+sub _is_imunify360_supported {
+    my $centos_version = Cpanel::Sys::OS::Check::get_strict_centos_version();
+    my $os             = Cpanel::Sys::GetOS::getos();
+    my $os_ok          = ( ( $os =~ /^centos$/ && ( $centos_version == 6 || $centos_version == 7 ) ) || $os =~ /^cloudlinux$/i );
+    return $os_ok;
 }
 
 1;
