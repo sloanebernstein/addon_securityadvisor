@@ -34,6 +34,7 @@ use Cpanel::Config::Sources ();
 use Cpanel::Version         ();
 use Cpanel::HTTP::Client    ();
 use Cpanel::JSON            ();
+use Cpanel::SafeRun::Object ();
 use Cpanel::Sys::OS::Check  ();
 use Cpanel::Sys::GetOS      ();
 use Cpanel::Template        ();
@@ -77,13 +78,7 @@ sub _get_purchase_and_install_template {
         [% END %]
         <li><a href="https://go.cpanel.net/buyimunify360" target="_new">[%- locale.maketext('Learn more about [asis,Imunify360]')%]</a></li>
     </ul>
-[%
-IF data.price;
-    locale.maketext( '[output,url,_1,Get Imunify360,_2,_3] for $[_4]/month.', data.path, 'target', '_parent', data.price );
-ELSE;
-    locale.maketext( '[output,url,_1,Get Imunify360,_2,_3].', data.path, 'target', '_parent');
-END;
-%]
+[%- data.link -%]
 TEMPLATE
 }
 
@@ -96,14 +91,7 @@ sub _get_purchase_template {
 </style>
 <ul>
     <li>
-    [%-
-    locale.maketext(
-        'To purchase a license, visit the [output,url,_1,cPanel Store,_2,_3].',
-        data.path,
-        'target',
-        '_parent',
-    )
-    -%]
+    [%- data.link -%]
     </li>
     <li>
     [%- locale.maketext(
@@ -141,15 +129,44 @@ sub _process_template {
     die "Template processing failed: $output";
 }
 
+sub create_purchase_link {
+    my ($self) = @_;
+
+    my $installed  = Whostmgr::Imunify360::is_imunify360_installed();
+    my $price      = Whostmgr::Imunify360::get_imunify360_price();
+
+    my $custom_url;
+    if (   Cpanel::Version::compare( Cpanel::Version::getversionnumber(), '>=', '11.81' ) ) {
+        my $imunify360 = Whostmgr::Imunify360->new;
+        $custom_url = $imunify360->get_custom_url();
+    }
+
+    my $cp_url     = $self->base_path('scripts12/purchase_imunify360_init');
+
+    if ($custom_url) {
+        return locale()->maketext( '[output,url,_1,Get Imunify360,_2,_3].', $custom_url, 'target', '_blank', );
+    }
+    if ($installed) {
+        return locale()->maketext( 'To purchase a license, visit the [output,url,_1,cPanel Store,_2,_3].', $cp_url, 'target', '_parent', );
+    }
+    if ($price) {
+        return locale()->maketext( '[output,url,_1,Get Imunify360,_2,_3] for $[_4]/month.', $cp_url, 'target', '_parent', $price );
+    }
+    return locale()->maketext( '[output,url,_1,Get Imunify360,_2,_3].', $cp_url, 'target', '_parent', );
+}
+
 sub _suggest_imunify360 {
     my ($self) = @_;
+
+    my $is_kernelcare_needed = _needs_kernelcare();
+    my $link                 = $self->create_purchase_link();
 
     if (  !Whostmgr::Imunify360::is_imunify360_licensed()
         && Whostmgr::Imunify360::is_imunify360_installed() ) {
         my $output = _process_template(
             \_get_purchase_template(),
             {
-                'path' => $self->base_path('scripts12/purchase_imunify360_init'),
+                'link' => $link,
             },
         );
 
@@ -168,10 +185,8 @@ sub _suggest_imunify360 {
         my $output = _process_template(
             \_get_purchase_and_install_template(),
             {
-                'path'               => $self->base_path('scripts12/purchase_imunify360_init'),
-                'price'              => $imunify360_price,
-                'include_kernelcare' => !Whostmgr::Imunify360::get_kernelcare_data()->{'disabled'}
-                  && Whostmgr::Imunify360::is_centos_6_or_7(),
+                'link'               => $link,
+                'include_kernelcare' => $is_kernelcare_needed,
             },
         );
 
@@ -187,8 +202,7 @@ sub _suggest_imunify360 {
             \_get_install_template(),
             {
                 'path'               => $self->base_path('scripts12/install_imunify360'),
-                'include_kernelcare' => !Whostmgr::Imunify360::get_kernelcare_data()->{'disabled'}
-                  && Whostmgr::Imunify360::is_centos_6_or_7(),
+                'include_kernelcare' => $is_kernelcare_needed,
             }
         );
 
@@ -228,6 +242,43 @@ sub _is_imunify360_supported {
     my $os             = Cpanel::Sys::GetOS::getos();
     my $os_ok          = ( ( $os =~ /^centos$/ && ( $centos_version == 6 || $centos_version == 7 ) ) || $os =~ /^cloudlinux$/i );
     return $os_ok;
+}
+
+sub _needs_kernelcare {
+    my $centos_version = Cpanel::Sys::OS::Check::get_strict_centos_version();
+
+    # This is only needed on CentOS 6 and 7. CloudLinux already has symlink protection built in,
+    # and other distros (RHEL, Amazon Linux, etc.) are not supported.
+    return 0 if not defined $centos_version or ( $centos_version != 6 and $centos_version != 7 );
+
+    # It doesn't make sense to attempt to manage the kernel of a container from within the container.
+    return 0 if _server_type() eq 'container';
+
+    # Partners may disable KernelCare availability via Manage2
+    return 0 if Whostmgr::Imunify360::get_kernelcare_data()->{'disabled'};
+
+    return 1;
+}
+
+sub _server_type {
+    my ($self) = @_;
+
+    my $run = Cpanel::SafeRun::Object->new_or_die(
+        program => '/usr/local/cpanel/bin/envtype',
+    );
+    chomp( my $server_type = $run->stdout );
+
+    return 'standard' if $server_type eq 'standard';
+
+    return 'container' if grep { $server_type eq $_ } qw(
+      virtuozzo
+      vzcontainer
+      virtualiron
+      lxc
+      vserver
+    );
+
+    return 'vm';
 }
 
 1;
