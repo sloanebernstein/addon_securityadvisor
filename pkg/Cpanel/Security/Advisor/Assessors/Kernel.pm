@@ -394,7 +394,7 @@ sub _check_kernelcare_kernel {
         $self->add_good_advice(
             'key'  => 'Kernel_kernelcare_is_current',
             'text' => $self->_lh->maketext(
-                'The system kernel is up-to-date at version “[_1]”.',
+                'KernelCare is installed and current running kernel version is up to date: [_1]',
                 $kernel->{running_version},
             ),
         );
