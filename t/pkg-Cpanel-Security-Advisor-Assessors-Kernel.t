@@ -47,6 +47,8 @@ plan tests => 4;
 my $envtype = Test::MockModule->new('Cpanel::KernelCare');
 $envtype->mock( system_supports_kernelcare => sub { 0 } );    # Disable KernelCare advertisements.
 
+local $ENV{'REQUEST_URI'} = 'mocking out to avoid warnings';
+
 subtest 'Error parsing boot configuration' => sub {
     plan tests => 2;
 
@@ -244,7 +246,7 @@ subtest 'KernelCare systems' => sub {
         function => ignore(),
         advice   => {
             key  => 'Kernel_kernelcare_is_current',
-            text => 'The system kernel is up-to-date at version “3.10.0-514.el7.x86_64”.',
+            text => 'KernelCare is installed and current running kernel version is up to date: 3.10.0-514.el7.x86_64',
             type => $Cpanel::Security::Advisor::ADVISE_GOOD,
         },
     };
@@ -308,7 +310,7 @@ subtest 'KernelCare systems' => sub {
         function => ignore(),
         advice   => {
             key  => 'Kernel_kernelcare_is_current',
-            text => 'The system kernel is up-to-date at version “3.10.0-514.el7.x86_64”.',
+            text => 'KernelCare is installed and current running kernel version is up to date: 3.10.0-514.el7.x86_64',
             type => $Cpanel::Security::Advisor::ADVISE_GOOD,
         },
     };
@@ -395,7 +397,7 @@ subtest 'KernelCare systems' => sub {
         function => ignore(),
         advice   => {
             key  => 'Kernel_kernelcare_is_current',
-            text => 'The system kernel is up-to-date at version “3.10.0-514.2.2.el7.x86_64”.',
+            text => 'KernelCare is installed and current running kernel version is up to date: 3.10.0-514.2.2.el7.x86_64',
             type => $Cpanel::Security::Advisor::ADVISE_GOOD,
         },
     };
@@ -472,7 +474,7 @@ subtest 'KernelCare systems' => sub {
         function => ignore(),
         advice   => {
             key  => 'Kernel_kernelcare_is_current',
-            text => 'The system kernel is up-to-date at version “3.10.0-514.10.2.el7.x86_64”.',
+            text => 'KernelCare is installed and current running kernel version is up to date: 3.10.0-514.10.2.el7.x86_64',
             type => $Cpanel::Security::Advisor::ADVISE_GOOD,
         },
     };
