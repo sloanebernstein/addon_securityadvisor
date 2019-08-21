@@ -129,6 +129,13 @@ sub _process_template {
     die "Template processing failed: $output";
 }
 
+sub _get_script_number() {
+    my $current_version = Cpanel::Version::getversionnumber();
+    my $is_v84_or_older = Cpanel::Version::compare( $current_version, '>=', '11.83' );
+
+    return $is_v84_or_older ? 'scripts13' : 'scripts12';
+}
+
 sub create_purchase_link {
     my ($self) = @_;
 
@@ -141,7 +148,7 @@ sub create_purchase_link {
         $custom_url = $imunify360->get_custom_url();
     }
 
-    my $cp_url     = $self->base_path('scripts12/purchase_imunify360_init');
+    my $cp_url = $self->base_path( _get_script_number() . '/purchase_imunify360_init' );
 
     if ($custom_url) {
         return locale()->maketext( '[output,url,_1,Get Imunify360,_2,_3].', $custom_url, 'target', '_blank', );
@@ -201,7 +208,7 @@ sub _suggest_imunify360 {
         my $output = _process_template(
             \_get_install_template(),
             {
-                'path'               => $self->base_path('scripts12/install_imunify360'),
+                'path'               => $self->base_path(  _get_script_number . '/install_imunify360'),
                 'include_kernelcare' => $is_kernelcare_needed,
             }
         );
