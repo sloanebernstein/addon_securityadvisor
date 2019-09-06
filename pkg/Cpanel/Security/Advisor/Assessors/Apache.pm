@@ -149,11 +149,14 @@ sub _check_for_easyapache3_eol {
             {
                 'key'        => 'Apache_easyapache3_going_eol',
                 'type'       => $Cpanel::Security::Advisor::ADVISE_BAD,
-                'text'       => $self->_lh->maketext('[asis,EasyApache 3] is going to be deprecated on December 31, 2018. After that date, [asis,cPanel amp() WHM] will no longer update [asis,EasyApache 3].'),
-                'suggestion' => $self->_lh->maketext(
-                    'In [asis,cPanel amp() WHM] version 78, we will remove support for [asis,EasyApache 3]. If you do not upgrade to [asis,EasyApache 4], you cannot upgrade to [asis,cPanel amp() WHM] version 78. For more information, read our [output,url,_1,EasyApache 4 documentation,target,_blank].',
-                    'https://go.cpanel.net/ea4'
-                ),
+                'text'       => $self->_lh->maketext('[asis,EasyApache 3] deprecated in [asis, cPanel amp() WHM] version 78'),
+                'suggestion' => $self->_lh->maketext('We deprecated [asis,EasyApache 3] on December 31, 2018.') . ' '
+                  . $self->_lh->maketext('[asis,cPanel amp() WHM] no longer updates [asis,EasyApache 3] and we removed all support for [asis,EasyApache 3] in version 78.')
+                  . '<br/><br/>'
+                  . $self->_lh->maketext('You [output,em,must] upgrade to [asis,EasyApache 4] in order to update your server with a newer version of [asis,cPanel amp() WHM].') . ' '
+                  . $self->_lh->maketext('If you do [output,em,not] update your server, you risk leaving your server vulnerable to several known security issues.')
+                  . '<br/><br/>'
+                  . $self->_lh->maketext( 'For more information, read our [output,url,_1,EasyApache 4 documentation,target,_blank].', 'https://go.cpanel.net/ea4' ),
             }
         );
     }
