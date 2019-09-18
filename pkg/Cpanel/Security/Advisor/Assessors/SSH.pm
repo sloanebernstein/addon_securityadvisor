@@ -108,7 +108,7 @@ sub _check_for_ssh_version {
                 'text'       => $self->_lh->maketext('Current SSH version is out of date.'),
                 'suggestion' => $self->_lh->maketext(
                     'Update current system software in the “[output,url,_1,Update System Software,_2,_3]” area',
-                    $self->base_path('scripts/dialog?dialog=updatesyssoftware'),
+                    $self->base_path('scripts/dialog?dialog=updatesrvsoftware'),
                     'target',
                     '_blank'
                 ),
