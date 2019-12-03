@@ -28,9 +28,10 @@ package Cpanel::Security::Advisor::Assessors::PHP;
 
 use strict;
 use base 'Cpanel::Security::Advisor::Assessors';
-use Cpanel::Result             ();
+use Cpanel::Result ();
 
-my $php_ver_regex = '^ea-(php)(\d{2,3})$';
+my $php_ver_regex = '^ea-php(\d{2,3})$';
+
 sub generate_advice {
     my ($self) = @_;
     $self->_check_for_php_eol();
@@ -38,22 +39,23 @@ sub generate_advice {
 }
 
 sub _check_for_php_eol {
-    my $self                 = shift;
+    my $self = shift;
     require Cpanel::API::EA4;
 
     my $result = Cpanel::Result->new();
-    Cpanel::API::EA4::get_recommendations(undef, $result);
-    my $reco_data = $result->{'data'} if $result;
+    Cpanel::API::EA4::get_recommendations( undef, $result );
+    my $reco_data    = $result->{'data'} if $result;
     my @php_ver_keys = grep { $_ =~ /$php_ver_regex/ } ( keys %$reco_data );
 
     my @eol_php_versions = ();
     my $eol_reco_data;
     foreach my $key (@php_ver_keys) {
-        my @recos = @{$reco_data->{$key}};
-        foreach (@recos){
-            if(grep {$_ eq 'eol'} @{$_->{'filter'}}){
-                # Recommendation data is same for all EOL PHP versions. Storing one such instance her to use
-                # later in the advice.
+        my @recos = @{ $reco_data->{$key} };
+        foreach (@recos) {
+            if ( grep { $_ eq 'eol' } @{ $_->{'filter'} } ) {
+
+                # Recommendation data is same for all EOL PHP versions. Storing only one such instance
+                # here to use later in the advice.
                 $eol_reco_data = $_ if ( !$eol_reco_data );
                 push @eol_php_versions, _get_readable_php_version_format($key);
             }
@@ -69,43 +71,37 @@ sub _check_for_php_eol {
         {
             'key'        => 'Php_versions_going_eol',
             'type'       => $Cpanel::Security::Advisor::ADVISE_BAD,
-            'text'       => $self->_lh->maketext('[list_and,_1] reached EOL (End of Life)', \@eol_php_versions),
-            'suggestion' => _make_unordered_list(
-                $eol_reco_data->{'options'}->[0]->{'text'},
-                $eol_reco_data->{'options'}->[1]->{'text'}
-            )
-            . $self->_lh->maketext( 'Go to [output,url,_1,MultiPHP Manager page]  and update to a supported version.', $self->base_path('scripts2/multiphp_manager') )
-            . ' '
-            . $self->_lh->maketext( 'For more information, read [output,url,_1,PHP EOL Documentation,target,_blank].', 'https://www.php.net/supported-versions.php' ),
+            'text'       => $self->_lh->maketext( '[list_and,_1] reached [output,acronym,EOL,End of Life][comment,title]', \@eol_php_versions ),
+            'suggestion' => _make_unordered_list( map { $_->{'text'} } @{ $eol_reco_data->{'options'} } )
+              . $self->_lh->maketext( 'Go to [output,url,_1,MultiPHP Manager page] and update to a supported version.',  $self->base_path('scripts2/multiphp_manager') ) . ' '
+              . $self->_lh->maketext( 'For more information, read [output,url,_1,PHP EOL Documentation,target,_blank].', 'https://www.php.net/supported-versions.php' ),
         }
     );
 
-    sub _get_readable_php_version_format {
-        my ( $php_version ) = @_;
-        my $readable_php_version;
-        if($php_version =~ /$php_ver_regex/){
-            my $first_part = uc $1;
-            my $second_part = $2;
-            $second_part =~ s/(\d)$/\.$1/;
-            $readable_php_version = "$first_part $second_part";
-        }
-        return $readable_php_version;
-    }
-
-    # Do this to work around bad perltidy concatenation rules.
-    sub _make_unordered_list {
-        my ( @items ) = @_;
-
-        my $output = '<ul>';
-        foreach my $item (@items) {
-            $output .= "<li>$item</li>";
-        }
-        $output .= '</ul>';
-
-        return $output;
-    }
-
     return 1;
+}
+
+sub _get_readable_php_version_format {
+    my ($php_version) = @_;
+    my $readable_php_version;
+    if ( $php_version =~ /$php_ver_regex/ ) {
+        my $second_part = $1;
+        $second_part =~ s/(\d)$/\.$1/;
+        $readable_php_version = "PHP $second_part";
+    }
+    return $readable_php_version;
+}
+
+sub _make_unordered_list {
+    my (@items) = @_;
+
+    my $output = '<ul>';
+    foreach my $item (@items) {
+        $output .= "<li>$item</li>";
+    }
+    $output .= '</ul>';
+
+    return $output;
 }
 
 1;
