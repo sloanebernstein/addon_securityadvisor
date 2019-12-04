@@ -41,22 +41,31 @@ sub generate_advice {
 sub _check_for_php_eol {
     my $self = shift;
     require Cpanel::API::EA4;
+    require Cpanel::ProgLang;
+
+    my $installed_php_versions = Cpanel::ProgLang->new( type => 'php' )->get_installed_packages();
 
     my $result = Cpanel::Result->new();
     Cpanel::API::EA4::get_recommendations( undef, $result );
     my $reco_data    = $result->{'data'} if $result;
-    my @php_ver_keys = grep { $_ =~ /$php_ver_regex/ } ( keys %$reco_data );
+
+    my @reco_keys_to_consider = ();
+    foreach my $installed_version (@$installed_php_versions){
+        if(grep { $_ eq $installed_version } keys %$reco_data) {
+            push @reco_keys_to_consider, $installed_version;
+        }
+    }
 
     my @eol_php_versions = ();
     my $eol_reco_data;
-    foreach my $key (@php_ver_keys) {
+    foreach my $key (sort @reco_keys_to_consider) {
         my @recos = @{ $reco_data->{$key} };
-        foreach (@recos) {
-            if ( grep { $_ eq 'eol' } @{ $_->{'filter'} } ) {
+        foreach my $reco (@recos) {
+            if ( grep { $_ eq 'eol' } @{ $reco->{'filter'} } ) {
 
                 # Recommendation data is same for all EOL PHP versions. Storing only one such instance
                 # here to use later in the advice.
-                $eol_reco_data = $_ if ( !$eol_reco_data );
+                $eol_reco_data = $reco if ( !$eol_reco_data );
                 push @eol_php_versions, _get_readable_php_version_format($key);
             }
         }
