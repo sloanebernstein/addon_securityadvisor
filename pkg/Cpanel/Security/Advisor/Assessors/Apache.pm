@@ -220,10 +220,10 @@ sub _centos_symlink_protection {
     my $jailedapache         = $security_advisor_obj->{'cpconf'}->{'jailapache'};
     my $sysinfo              = Cpanel::GenSysInfo::run();
 
-    my $is_ea4 = ( defined &Cpanel::Config::Httpd::is_ea4 && Cpanel::Config::Httpd::is_ea4() ) ? 1 : 0;
-    my $bluehost_ea3 = ($is_ea4) ? 0 : grep { /SPT_DOCROOT/ } $httpd_binary;
-    my $local_settings = ($is_ea4) ? Cpanel::DataStore::fetch_ref('/var/cpanel/conf/apache/local') : undef;
-    my $bluehost_ea4 = ($is_ea4) ? ( exists $local_settings->{main}->{symlink_protect} && $local_settings->{main}->{symlink_protect}->{item}->{symlink_protect} eq 'On' ) : 0;
+    my $is_ea4         = ( defined &Cpanel::Config::Httpd::is_ea4 && Cpanel::Config::Httpd::is_ea4() ) ? 1                                                                                                                                      : 0;
+    my $bluehost_ea3   = ($is_ea4)                                                                     ? 0                                                                                                                                      : grep { /SPT_DOCROOT/ } $httpd_binary;
+    my $local_settings = ($is_ea4)                                                                     ? Cpanel::DataStore::fetch_ref('/var/cpanel/conf/apache/local')                                                                          : undef;
+    my $bluehost_ea4   = ($is_ea4)                                                                     ? ( exists $local_settings->{main}->{symlink_protect} && $local_settings->{main}->{symlink_protect}->{item}->{symlink_protect} eq 'On' ) : 0;
 
     my $kernelcare_state = Cpanel::KernelCare::get_kernelcare_state();
 
