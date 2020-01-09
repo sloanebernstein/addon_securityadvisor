@@ -94,7 +94,8 @@ sub _check_for_apache_chroot {
                 'type'       => $Cpanel::Security::Advisor::ADVISE_BAD,
                 'text'       => $self->_lh->maketext('Apache vhosts are not segmented or chroot()ed.'),
                 'suggestion' => $self->_lh->maketext(
-                    'Enable “Jail Apache” in the “[output,url,_1,Tweak Settings,_4,_5]” area, and change users to jailshell in the “[output,url,_2,Manage Shell Access,_4,_5]” area.  Consider a more robust solution by using “[output,url,_3,CageFS on CloudLinux,_4,_5]”.  Note that this may break the ability to access mailman via Apache.',
+                    'Enable “mod_ruid2” in the “[output,url,_1,EasyApache 4,_5,_6]” area, enable “Jail Apache” in the “[output,url,_2,Tweak Settings,_5,_6]” area, and change users to jailshell in the “[output,url,_3,Manage Shell Access,_5,_6]” area.  Consider a more robust solution by using “[output,url,_4,CageFS on CloudLinux,_5,_6]”.  Note that this may break the ability to access mailman via Apache.',
+                    $self->base_path('scripts7/EasyApache4'),
                     $self->base_path('scripts2/tweaksettings?find=jailapache'),
                     $self->base_path('scripts2/manageshells'),
                     'https://go.cpanel.net/cloudlinux',
