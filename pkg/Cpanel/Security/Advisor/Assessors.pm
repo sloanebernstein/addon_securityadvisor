@@ -152,6 +152,7 @@ sub get_installed_rpms {
 }
 
 sub get_running_kernel_type {
+    require Cpanel::LoadFile;
     my ($kallsyms) = Cpanel::LoadFile::loadfile('/proc/kallsyms');
 
     my $redhat_release = Cpanel::LoadFile::loadfile('/etc/redhat-release');
