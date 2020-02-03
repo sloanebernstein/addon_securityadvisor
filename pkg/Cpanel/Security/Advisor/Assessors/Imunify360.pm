@@ -42,20 +42,58 @@ use Cpanel::Template        ();
 use Cpanel::Imports;
 
 our $IMUNIFY360_MINIMUM_CPWHM_VERSION = '11.79';    # we want it usable on both development and release builds for 11.80
+our $IMUNIFYAV_MINIMUM_CPWHM_VERSION  = '11.87';
 
 sub version {
-    return '1.00';
+    return '2.00';
 }
 
 sub generate_advice {
     my ($self) = @_;
 
+    my $cpanel_version = Cpanel::Version::getversionnumber();
+
+    my $rpm = Cpanel::RPM->new();
+    $self->{has_clam} = $rpm->has_rpm('cpanel-clamav');
+
     eval {
-        if (   Cpanel::Version::compare( Cpanel::Version::getversionnumber(), '>=', $IMUNIFY360_MINIMUM_CPWHM_VERSION )
-            && _is_imunify360_supported()
+
+        # These checks will only run on v80 and higher
+        if (   Cpanel::Version::compare( $cpanel_version, '>=', $IMUNIFY360_MINIMUM_CPWHM_VERSION )
             && require Whostmgr::Imunify360
-            && !Whostmgr::Imunify360::get_imunify360_data()->{'disabled'} ) {
-            $self->_suggest_imunify360;
+            && _is_imunify_supported() ) {
+
+            $self->{i360} = {
+                data      => Whostmgr::Imunify360::get_imunify360_data(),
+                installed => Whostmgr::Imunify360::is_imunify360_installed(),
+                licensed  => Whostmgr::Imunify360::is_imunify360_licensed(),
+                price     => Whostmgr::Imunify360::get_imunify360_price(),
+            };
+
+            if ( !$self->{i360}{data}{disabled} ) {
+                $self->_suggest_imunify360;
+            }
+
+        }
+
+        # These checks will only run on v88 and highger.
+        if (   Cpanel::Version::compare( $cpanel_version, '>=', $IMUNIFYAV_MINIMUM_CPWHM_VERSION )
+            && require Whostmgr::Store::Product::ImunifyAVPlus
+            && ( !$self->{i360}{installed} || !$self->{i360}{licensed} ) ) {
+
+            my $store = Whostmgr::Store::Product::ImunifyAVPlus->new( redirect_path => 'cgi/securityadvisor/index.cgi' );
+
+            if ( $store->should_offer() ) {
+
+                $self->{iav} = {
+                    installed => $store->is_product_installed(),
+                    licensed  => $store->is_product_licensed(),
+                    price     => $store->get_product_price(),
+                };
+
+                $self->_suggest_iav;
+
+            }
         }
     };
     if ( my $exception = $@ ) {
@@ -139,11 +177,11 @@ sub _get_script_number() {
 sub create_purchase_link {
     my ($self) = @_;
 
-    my $installed  = Whostmgr::Imunify360::is_imunify360_installed();
-    my $price      = Whostmgr::Imunify360::get_imunify360_price();
+    my $installed = $self->{i360}{installed};
+    my $price     = $self->{i360}{price};
 
     my $custom_url;
-    if (   Cpanel::Version::compare( Cpanel::Version::getversionnumber(), '>=', '11.81' ) ) {
+    if ( Cpanel::Version::compare( Cpanel::Version::getversionnumber(), '>=', '11.81' ) ) {
         my $imunify360 = Whostmgr::Imunify360->new;
         $custom_url = $imunify360->get_custom_url();
     }
@@ -168,8 +206,7 @@ sub _suggest_imunify360 {
     my $is_kernelcare_needed = _needs_kernelcare();
     my $link                 = $self->create_purchase_link();
 
-    if (  !Whostmgr::Imunify360::is_imunify360_licensed()
-        && Whostmgr::Imunify360::is_imunify360_installed() ) {
+    if ( !$self->{i360}{licensed} && $self->{i360}{installed} ) {
         my $output = _process_template(
             \_get_purchase_template(),
             {
@@ -184,10 +221,7 @@ sub _suggest_imunify360 {
             block_notify => 1,                                                                                             # Do not send a notification about this
         );
     }
-    elsif (!Whostmgr::Imunify360::is_imunify360_licensed()
-        && !Whostmgr::Imunify360::is_imunify360_installed() ) {
-
-        my $imunify360_price = Whostmgr::Imunify360::get_imunify360_price();
+    elsif ( !$self->{i360}{licensed} && !$self->{i360}{installed} ) {
 
         my $output = _process_template(
             \_get_purchase_and_install_template(),
@@ -204,11 +238,11 @@ sub _suggest_imunify360 {
             block_notify => 1,                                                                                                      # Do not send a notification about this
         );
     }
-    elsif ( !Whostmgr::Imunify360::is_imunify360_installed() ) {
+    elsif ( !$self->{i360}{installed} ) {
         my $output = _process_template(
             \_get_install_template(),
             {
-                'path'               => $self->base_path(  _get_script_number . '/install_imunify360'),
+                'path'               => $self->base_path( _get_script_number . '/install_imunify360' ),
                 'include_kernelcare' => $is_kernelcare_needed,
             }
         );
@@ -244,7 +278,106 @@ sub _suggest_imunify360 {
     return 1;
 }
 
-sub _is_imunify360_supported {
+sub _suggest_iav {
+    my ($self) = @_;
+
+    if ( !$self->{iav}{installed} && !$self->{iav}{licensed} ) {
+        $self->_avplus_advice( action => 'installav', advice => 'bad' );
+        $self->_avplus_advice( action => 'upgrade',   advice => 'warn' );
+    }
+    elsif ( !$self->{iav}{installed} && $self->{iav}{licensed} ) {
+        $self->_avplus_advice( action => 'installplus', advice => 'bad' );
+    }
+    elsif ( $self->{iav}{installed} && !$self->{iav}{licensed} ) {
+        $self->_avplus_advice( action => 'upgrade', advice => 'warn' );
+    }
+    elsif ( $self->{iav}{installed} && $self->{iav}{licensed} ) {
+        $self->add_good_advice(
+            key          => 'ImunifyAV+_present',
+            text         => locale()->maketext(q{Your server is protected by [asis,ImunifyAV+].}),
+            block_notify => 1,
+        );
+    }
+
+    if ( $self->{has_clam} && $self->{iav}{installed} ) {
+        my $plugins_url = $self->base_path('scripts2/manage_plugins');
+        $self->add_warn_advice(
+            'key'          => 'ImunifyAV+_clam_and_iav_installed',
+            'block_notify' => 1,
+            'text'         => locale()->maketext("Uninstall [asis,ClamAV]."),
+            'suggestion'   => locale()->maketext( "[asis,ClamAV] and [asis,ImunifyAV] are both installed. [output,url,_1,Uninstall ClamAV,_2,_3]", $plugins_url, 'target', '_blank' ),
+        );
+    }
+
+    return 1;
+}
+
+sub _upgrade_avplus_text {
+    my ($self) = @_;
+    my $purchase_url = $self->base_path('scripts13/purchase_imunifyavplus_init_SECURITYADVISOR');
+    return {
+        text       => locale()->maketext("Upgrade to [asis,ImunifyAV+] to scan for malware and clean up infected files with one click."),
+        link       => locale()->maketext( "[output,url,_1,Get ImunifyAV+,_2,_3] for \$[_4]/month.", $purchase_url, 'target', '_blank', $self->{iav}{price} ),
+        suggestion => locale()->maketext("ImunifyAV+ brings you the advanced scanning of ImunifyAV and adds more options to make protecting servers from malicious code almost effortless. Enhanced features include:") . "<ul>" . "<li>"
+          . locale()->maketext("Malware and virus scanning") . "</li>" . "<li>"
+          . locale()->maketext("Email notifications if infected files are found") . "</li>" . "<li>"
+          . locale()->maketext("Automatically clean up infected files") . "</li>" . "<li>"
+          . locale()->maketext("Easy-to-use GUI makes monitoring simple") . "</li>" . "<li>"
+          . locale()->maketext( "[output,url,_1,Learn more about ImunifyAV+,_2,_3]", 'https://go.cpanel.net/buyimunifyAVplus', 'target', '_blank' ) . "</li>" . "</ul>",
+    };
+}
+
+sub _install_av_text {
+    my ($self) = @_;
+    my $install_av_url = $self->base_path('scripts13/install_imunifyav_SECURITYADVISOR');
+    return {
+        text       => locale()->maketext("Install [asis,ImunifyAV] to scan your websites for malware."),
+        link       => locale()->maketext( "[output,url,_1,Install ImunifyAV,_2,_3] for free.", $install_av_url, 'target', '_blank' ),
+        suggestion => '',
+    };
+}
+
+sub _install_avplus_text {
+    my ($self) = @_;
+    my $install_plus_url = $self->base_path('scripts13/install_imunifyavplus_SECURITYADVISOR');
+    return {
+        text       => locale()->maketext("You have an [asis,ImunifyAV+] license, but you do not have [asis,ImunifyAV+] installed on your server."),
+        link       => locale()->maketext( "[output,url,_1,Install ImunifyAV+,_2,_3].", $install_plus_url, 'target', '_blank' ),
+        suggestion => '',
+    };
+}
+
+sub _avplus_advice {
+    my ( $self, %args ) = @_;
+
+    my $content = {};
+
+    if ( $args{action} eq 'upgrade' ) {
+        $content = $self->_upgrade_avplus_text();
+    }
+    elsif ( $args{action} eq 'installav' ) {
+        $content = $self->_install_av_text();
+    }
+    elsif ( $args{action} eq 'installplus' ) {
+        $content = $self->_install_avplus_text();
+    }
+    else {
+        return 0;
+    }
+
+    my %advice = (
+        'key'          => "ImunifyAV+_$args{advice}",
+        'block_notify' => 1,
+        'text'         => $content->{text},
+        'suggestion'   => $content->{suggestion} . $content->{link},
+    );
+
+    my $method = "add_$args{advice}_advice";
+    return $self->$method(%advice);
+}
+
+sub _is_imunify_supported {
+
     my $centos_version = Cpanel::Sys::OS::Check::get_strict_centos_version();
     my $os             = Cpanel::Sys::GetOS::getos();
     my $os_ok          = ( ( $os =~ /^centos$/ && ( $centos_version == 6 || $centos_version == 7 ) ) || $os =~ /^cloudlinux$/i );
