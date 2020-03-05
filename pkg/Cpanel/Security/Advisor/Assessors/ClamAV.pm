@@ -30,14 +30,20 @@ use strict;
 use warnings;
 use Cpanel::FindBin         ();
 use Cpanel::SafeRun::Errors ();
+use Cpanel::Version         ();
 
 use base 'Cpanel::Security::Advisor::Assessors';
 
 sub generate_advice {
     my ($self) = @_;
 
-    return 0 if $self->_check_clamav();
+    my $cpanel_version = Cpanel::Version::getversionnumber();
 
+    # Only show the clamav advice if running version 86 and lower.
+    # Otherwise we will recommend ImunifyAV in the Imunify360 module.
+    if ( Cpanel::Version::compare( $cpanel_version, '<=', '11.86' ) ) {
+        return 0 if $self->_check_clamav();
+    }
     return 1;
 }
 
