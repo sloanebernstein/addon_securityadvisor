@@ -314,7 +314,7 @@ sub _suggest_iav {
 
 sub _upgrade_avplus_text {
     my ($self) = @_;
-    my $purchase_url = $self->base_path('scripts13/purchase_imunifyavplus_init_SECURITYADVISOR');
+    my $purchase_url = $self->base_path('scripts14/purchase_imunifyavplus_init_SECURITYADVISOR');
     return {
         text       => locale()->maketext("Upgrade to [asis,ImunifyAV+] to scan for malware and clean up infected files with one click."),
         link       => locale()->maketext( "[output,url,_1,Get ImunifyAV+,_2,_3] for \$[_4]/month.", $purchase_url, 'target', '_blank', $self->{iav}{price} ),
@@ -339,7 +339,7 @@ sub _install_av_text {
 
 sub _install_avplus_text {
     my ($self) = @_;
-    my $install_plus_url = $self->base_path('scripts13/install_imunifyavplus_SECURITYADVISOR');
+    my $install_plus_url = $self->base_path('scripts14/install_imunifyavplus_SECURITYADVISOR');
     return {
         text       => locale()->maketext("You have an [asis,ImunifyAV+] license, but you do not have [asis,ImunifyAV+] installed on your server."),
         link       => locale()->maketext( "[output,url,_1,Install ImunifyAV+,_2,_3].", $install_plus_url, 'target', '_blank' ),
