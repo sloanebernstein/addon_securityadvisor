@@ -329,7 +329,7 @@ sub _upgrade_avplus_text {
 
 sub _install_av_text {
     my ($self) = @_;
-    my $install_av_url = $self->base_path('scripts13/install_imunifyav_SECURITYADVISOR');
+    my $install_av_url = $self->base_path('scripts14/install_imunifyav_SECURITYADVISOR');
     return {
         text       => locale()->maketext("Install [asis,ImunifyAV] to scan your websites for malware."),
         link       => locale()->maketext( "[output,url,_1,Install ImunifyAV,_2,_3] for free.", $install_av_url, 'target', '_blank' ),
