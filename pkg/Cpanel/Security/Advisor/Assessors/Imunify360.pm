@@ -169,9 +169,10 @@ sub _process_template {
 
 sub _get_script_number() {
     my $current_version = Cpanel::Version::getversionnumber();
-    my $is_v84_or_older = Cpanel::Version::compare( $current_version, '>=', '11.83' );
+    my $is_v88_or_newer = Cpanel::Version::compare( $current_version, '>=', '11.87' );
+    my $is_v84_or_newer = Cpanel::Version::compare( $current_version, '>=', '11.83' );
 
-    return $is_v84_or_older ? 'scripts13' : 'scripts12';
+    return $is_v88_or_newer ? 'scripts14' : $is_v84_or_newer ? 'scripts13' : 'scripts12';
 }
 
 sub create_purchase_link {
