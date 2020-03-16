@@ -91,6 +91,9 @@ sub generate_advice {
                     price     => $store->get_product_price(),
                 };
 
+                my $iav_url = $store->get_custom_url();
+                $self->{iav}{url} = $iav_url ? $iav_url : $self->base_path('scripts13/purchase_imunifyavplus_init_SECURITYADVISOR');
+
                 $self->_suggest_iav;
 
             }
@@ -313,10 +316,9 @@ sub _suggest_iav {
 
 sub _upgrade_avplus_text {
     my ($self) = @_;
-    my $purchase_url = $self->base_path('scripts13/purchase_imunifyavplus_init_SECURITYADVISOR');
     return {
         text       => locale()->maketext("Use [asis,ImunifyAV+] to scan for malware and clean up infected files with one click."),
-        link       => locale()->maketext( "[output,url,_1,Get ImunifyAV+,_2,_3] for \$[_4]/month.", $purchase_url, 'target', '_blank', $self->{iav}{price} ),
+        link       => locale()->maketext( "[output,url,_1,Get ImunifyAV+,_2,_3] for \$[_4]/month.", $self->{iav}{url}, 'target', '_blank', $self->{iav}{price} ),
         suggestion => locale()->maketext("ImunifyAV+ brings you the advanced scanning of ImunifyAV and adds more options to make protecting servers from malicious code almost effortless. Enhanced features include:") . "<ul>" . "<li>"
           . locale()->maketext("Malware and virus scanning") . "</li>" . "<li>"
           . locale()->maketext("Automatic clean up") . "</li>" . "<li>"
