@@ -97,7 +97,7 @@ sub generate_advice {
                     };
 
                     my $iavp_url = $iavp_store->get_custom_url();
-                    $self->{iavp}{url} = $iavp_url ? $iavp_url : $self->base_path('scripts13/purchase_imunifyavplus_init_SECURITYADVISOR');
+                    $self->{iavp}{url} = $iavp_url ? $iavp_url : $self->base_path('scripts14/purchase_imunifyavplus_init_SECURITYADVISOR');
 
                     $self->_suggest_iavp;
 
@@ -177,9 +177,10 @@ sub _process_template {
 
 sub _get_script_number() {
     my $current_version = Cpanel::Version::getversionnumber();
-    my $is_v84_or_older = Cpanel::Version::compare( $current_version, '>=', '11.83' );
+    my $is_v88_or_newer = Cpanel::Version::compare( $current_version, '>=', '11.87' );
+    my $is_v84_or_newer = Cpanel::Version::compare( $current_version, '>=', '11.83' );
 
-    return $is_v84_or_older ? 'scripts13' : 'scripts12';
+    return $is_v88_or_newer ? 'scripts14' : $is_v84_or_newer ? 'scripts13' : 'scripts12';
 }
 
 sub create_purchase_link {
@@ -334,7 +335,7 @@ sub _upgrade_avplus_text {
     my ($self) = @_;
     return {
         text       => locale()->maketext("Use [asis,ImunifyAV+] to scan for malware and clean up infected files with one click."),
-        link       => locale()->maketext( "[output,url,_1,Get ImunifyAV+,_2,_3] for \$[_4]/month.", $self->{iav}{url}, 'target', '_blank', $self->{iav}{price} ),
+        link       => locale()->maketext( "[output,url,_1,Get ImunifyAV+,_2,_3] for \$[_4]/month.", $self->{iavp}{url}, 'target', '_blank', $self->{iavp}{price} ),
         suggestion => locale()->maketext("ImunifyAV+ brings you the advanced scanning of ImunifyAV and adds more options to make protecting servers from malicious code almost effortless. Enhanced features include:") . "<ul>" . "<li>"
           . locale()->maketext("Malware and virus scanning") . "</li>" . "<li>"
           . locale()->maketext("Automatic clean up") . "</li>" . "<li>"
@@ -344,7 +345,7 @@ sub _upgrade_avplus_text {
 
 sub _install_av_text {
     my ($self) = @_;
-    my $install_av_url = $self->base_path('scripts13/install_imunifyav_SECURITYADVISOR');
+    my $install_av_url = $self->base_path('scripts14/install_imunifyav_SECURITYADVISOR');
     return {
         text       => locale()->maketext("Install [asis,ImunifyAV] to scan your websites for malware."),
         link       => locale()->maketext( "[output,url,_1,Install ImunifyAV,_2,_3] for free.", $install_av_url, 'target', '_blank' ),
@@ -354,7 +355,7 @@ sub _install_av_text {
 
 sub _install_avplus_text {
     my ($self) = @_;
-    my $install_plus_url = $self->base_path('scripts13/install_imunifyavplus_SECURITYADVISOR');
+    my $install_plus_url = $self->base_path('scripts14/install_imunifyavplus_SECURITYADVISOR');
     return {
         text       => locale()->maketext("You have an [asis,ImunifyAV+] license, but you do not have [asis,ImunifyAV+] installed on your server."),
         link       => locale()->maketext( "[output,url,_1,Install ImunifyAV+,_2,_3].", $install_plus_url, 'target', '_blank' ),
