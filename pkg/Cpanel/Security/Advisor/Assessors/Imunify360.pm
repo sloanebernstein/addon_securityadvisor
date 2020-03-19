@@ -76,7 +76,7 @@ sub generate_advice {
 
         # These checks will only run on v88 and highger.
         if ( Cpanel::Version::compare( $cpanel_version, '>=', $IMUNIFYAV_MINIMUM_CPWHM_VERSION )
-            && ( !$self->{i360}{installed} || !$self->{i360}{licensed} ) ) {
+            && ( !$self->{i360}{installed} && !$self->{i360}{licensed} ) ) {
 
             if ( _can_load_module('Whostmgr::Store::Product::ImunifyAV') ) {
                 my $iav_store = Whostmgr::Store::Product::ImunifyAV->new( redirect_path => 'cgi/securityadvisor/index.cgi' );
