@@ -78,12 +78,6 @@ sub generate_advice {
         if ( Cpanel::Version::compare( $cpanel_version, '>=', $IMUNIFYAV_MINIMUM_CPWHM_VERSION )
             && ( !$self->{i360}{installed} && !$self->{i360}{licensed} ) ) {
 
-            if ( _can_load_module('Whostmgr::Store::Product::ImunifyAV') ) {
-                my $iav_store = Whostmgr::Store::Product::ImunifyAV->new( redirect_path => 'cgi/securityadvisor/index.cgi' );
-                $self->{iav}{installed} = $iav_store->is_product_installed();
-                $self->_suggest_iav;
-            }
-
             if ( _can_load_module('Whostmgr::Store::Product::ImunifyAVPlus') ) {
 
                 my $iavp_store = Whostmgr::Store::Product::ImunifyAVPlus->new( redirect_path => 'cgi/securityadvisor/index.cgi' );
@@ -102,6 +96,12 @@ sub generate_advice {
                     $self->_suggest_iavp;
 
                 }
+            }
+
+            if ( _can_load_module('Whostmgr::Store::Product::ImunifyAV') ) {
+                my $iav_store = Whostmgr::Store::Product::ImunifyAV->new( redirect_path => 'cgi/securityadvisor/index.cgi' );
+                $self->{iav}{installed} = $iav_store->is_product_installed();
+                $self->_suggest_iav;
             }
         }
     };
@@ -290,10 +290,10 @@ sub _suggest_imunify360 {
 sub _suggest_iav {
     my ($self) = @_;
 
-    if ( !$self->{iav}{installed} ) {
+    if ( !$self->{iav}{installed} && !$self->{iavp}{licensed} ) {
         $self->_avplus_advice( action => 'installav', advice => 'bad' );
     }
-    else {
+    elsif ( $self->{iav}{installed} ) {
 
         require Cpanel::RPM;
         my $rpm = Cpanel::RPM->new();
@@ -308,6 +308,7 @@ sub _suggest_iav {
             );
         }
     }
+
     return 1;
 }
 
