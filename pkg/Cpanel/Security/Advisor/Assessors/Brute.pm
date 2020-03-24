@@ -57,7 +57,7 @@ sub _check_for_brute_force_protection {
         );
 
     }
-    elsif ( -e "/etc/csf" ) {
+    elsif ( -x "/usr/sbin/csf" ) {
         if ( -e "/etc/csf/csf.disable" ) {
             if ( -e "/usr/local/cpanel/whostmgr/docroot/cgi/configserver/csf" ) {
                 $security_advisor_obj->add_advice(
