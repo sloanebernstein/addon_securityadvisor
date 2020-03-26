@@ -293,9 +293,8 @@ sub _suggest_iav {
     if ( !$self->{iav}{installed} && !$self->{iavp}{licensed} ) {
         $self->_avplus_advice( action => 'installav', advice => 'bad' );
     }
-    elsif ( $self->{iav}{installed} ) {
+    elsif ( $self->{iav}{installed} && _can_load_module('Cpanel::RPM') ) {
 
-        require Cpanel::RPM;
         my $rpm = Cpanel::RPM->new();
         if ( $rpm->has_rpm('cpanel-clamav') ) {
 
