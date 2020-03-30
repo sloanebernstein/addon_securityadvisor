@@ -38,6 +38,7 @@ use Cpanel::SafeRun::Object ();
 use Cpanel::Sys::OS::Check  ();
 use Cpanel::Sys::GetOS      ();
 use Cpanel::Template        ();
+use Cpanel::LoadModule      ();
 
 use Cpanel::Imports;
 
@@ -53,14 +54,11 @@ sub generate_advice {
 
     my $cpanel_version = Cpanel::Version::getversionnumber();
 
-    my $rpm = Cpanel::RPM->new();
-    $self->{has_clam} = $rpm->has_rpm('cpanel-clamav');
-
     eval {
 
         # These checks will only run on v80 and higher
         if (   Cpanel::Version::compare( $cpanel_version, '>=', $IMUNIFY360_MINIMUM_CPWHM_VERSION )
-            && require Whostmgr::Imunify360
+            && _can_load_module('Whostmgr::Imunify360')
             && _is_imunify_supported() ) {
 
             $self->{i360} = {
@@ -77,22 +75,33 @@ sub generate_advice {
         }
 
         # These checks will only run on v88 and highger.
-        if (   Cpanel::Version::compare( $cpanel_version, '>=', $IMUNIFYAV_MINIMUM_CPWHM_VERSION )
-            && require Whostmgr::Store::Product::ImunifyAVPlus
-            && ( !$self->{i360}{installed} || !$self->{i360}{licensed} ) ) {
+        if ( Cpanel::Version::compare( $cpanel_version, '>=', $IMUNIFYAV_MINIMUM_CPWHM_VERSION )
+            && ( !$self->{i360}{installed} && !$self->{i360}{licensed} ) ) {
 
-            my $store = Whostmgr::Store::Product::ImunifyAVPlus->new( redirect_path => 'cgi/securityadvisor/index.cgi' );
+            if ( _can_load_module('Whostmgr::Store::Product::ImunifyAVPlus') ) {
 
-            if ( $store->should_offer() ) {
+                my $iavp_store = Whostmgr::Store::Product::ImunifyAVPlus->new( redirect_path => 'cgi/securityadvisor/index.cgi' );
 
-                $self->{iav} = {
-                    installed => $store->is_product_installed(),
-                    licensed  => $store->is_product_licensed(),
-                    price     => $store->get_product_price(),
-                };
+                if ( $iavp_store->should_offer() ) {
 
+                    $self->{iavp} = {
+                        installed => $iavp_store->is_product_installed(),
+                        licensed  => $iavp_store->is_product_licensed(),
+                        price     => $iavp_store->get_product_price(),
+                    };
+
+                    my $iavp_url = $iavp_store->get_custom_url();
+                    $self->{iavp}{url} = $iavp_url ? $iavp_url : $self->base_path('scripts14/purchase_imunifyavplus_init_SECURITYADVISOR');
+
+                    $self->_suggest_iavp;
+
+                }
+            }
+
+            if ( _can_load_module('Whostmgr::Store::Product::ImunifyAV') ) {
+                my $iav_store = Whostmgr::Store::Product::ImunifyAV->new( redirect_path => 'cgi/securityadvisor/index.cgi' );
+                $self->{iav}{installed} = $iav_store->is_product_installed();
                 $self->_suggest_iav;
-
             }
         }
     };
@@ -168,9 +177,10 @@ sub _process_template {
 
 sub _get_script_number() {
     my $current_version = Cpanel::Version::getversionnumber();
-    my $is_v84_or_older = Cpanel::Version::compare( $current_version, '>=', '11.83' );
+    my $is_v88_or_newer = Cpanel::Version::compare( $current_version, '>=', '11.87' );
+    my $is_v84_or_newer = Cpanel::Version::compare( $current_version, '>=', '11.83' );
 
-    return $is_v84_or_older ? 'scripts13' : 'scripts12';
+    return $is_v88_or_newer ? 'scripts14' : $is_v84_or_newer ? 'scripts13' : 'scripts12';
 }
 
 sub create_purchase_link {
@@ -280,31 +290,41 @@ sub _suggest_imunify360 {
 sub _suggest_iav {
     my ($self) = @_;
 
-    if ( !$self->{iav}{installed} && !$self->{iav}{licensed} ) {
+    if ( !$self->{iav}{installed} && !$self->{iavp}{licensed} ) {
         $self->_avplus_advice( action => 'installav', advice => 'bad' );
-        $self->_avplus_advice( action => 'upgrade',   advice => 'info' );
     }
-    elsif ( !$self->{iav}{installed} && $self->{iav}{licensed} ) {
-        $self->_avplus_advice( action => 'installplus', advice => 'bad' );
+    elsif ( $self->{iav}{installed} && _can_load_module('Cpanel::RPM') ) {
+
+        my $rpm = Cpanel::RPM->new();
+        if ( $rpm->has_rpm('cpanel-clamav') ) {
+
+            my $plugins_url = $self->base_path('scripts2/manage_plugins');
+            $self->add_warn_advice(
+                'key'          => 'ImunifyAV+_clam_and_iav_installed',
+                'block_notify' => 1,
+                'text'         => locale()->maketext("Uninstall [asis,ClamAV]."),
+                'suggestion'   => locale()->maketext( "[asis,ClamAV] and [asis,ImunifyAV] are both installed. [output,url,_1,Uninstall ClamAV,_2,_3]", $plugins_url, 'target', '_blank' ),
+            );
+        }
     }
-    elsif ( $self->{iav}{installed} && !$self->{iav}{licensed} ) {
+
+    return 1;
+}
+
+sub _suggest_iavp {
+    my ($self) = @_;
+
+    if ( !$self->{iavp}{licensed} ) {
         $self->_avplus_advice( action => 'upgrade', advice => 'info' );
     }
-    elsif ( $self->{iav}{installed} && $self->{iav}{licensed} ) {
+    elsif ( !$self->{iavp}{installed} && $self->{iavp}{licensed} ) {
+        $self->_avplus_advice( action => 'installplus', advice => 'bad' );
+    }
+    elsif ( $self->{iavp}{installed} && $self->{iavp}{licensed} ) {
         $self->add_good_advice(
             key          => 'ImunifyAV+_present',
             text         => locale()->maketext(q{Your server is protected by [asis,ImunifyAV+].}),
             block_notify => 1,
-        );
-    }
-
-    if ( $self->{has_clam} && $self->{iav}{installed} ) {
-        my $plugins_url = $self->base_path('scripts2/manage_plugins');
-        $self->add_warn_advice(
-            'key'          => 'ImunifyAV+_clam_and_iav_installed',
-            'block_notify' => 1,
-            'text'         => locale()->maketext("Uninstall [asis,ClamAV]."),
-            'suggestion'   => locale()->maketext( "[asis,ClamAV] and [asis,ImunifyAV] are both installed. [output,url,_1,Uninstall ClamAV,_2,_3]", $plugins_url, 'target', '_blank' ),
         );
     }
 
@@ -313,10 +333,9 @@ sub _suggest_iav {
 
 sub _upgrade_avplus_text {
     my ($self) = @_;
-    my $purchase_url = $self->base_path('scripts13/purchase_imunifyavplus_init_SECURITYADVISOR');
     return {
         text       => locale()->maketext("Use [asis,ImunifyAV+] to scan for malware and clean up infected files with one click."),
-        link       => locale()->maketext( "[output,url,_1,Get ImunifyAV+,_2,_3] for \$[_4]/month.", $purchase_url, 'target', '_blank', $self->{iav}{price} ),
+        link       => locale()->maketext( "[output,url,_1,Get ImunifyAV+,_2,_3] for \$[_4]/month.", $self->{iavp}{url}, 'target', '_blank', $self->{iavp}{price} ),
         suggestion => locale()->maketext("ImunifyAV+ brings you the advanced scanning of ImunifyAV and adds more options to make protecting servers from malicious code almost effortless. Enhanced features include:") . "<ul>" . "<li>"
           . locale()->maketext("Malware and virus scanning") . "</li>" . "<li>"
           . locale()->maketext("Automatic clean up") . "</li>" . "<li>"
@@ -326,7 +345,7 @@ sub _upgrade_avplus_text {
 
 sub _install_av_text {
     my ($self) = @_;
-    my $install_av_url = $self->base_path('scripts13/install_imunifyav_SECURITYADVISOR');
+    my $install_av_url = $self->base_path('scripts14/install_imunifyav_SECURITYADVISOR');
     return {
         text       => locale()->maketext("Install [asis,ImunifyAV] to scan your websites for malware."),
         link       => locale()->maketext( "[output,url,_1,Install ImunifyAV,_2,_3] for free.", $install_av_url, 'target', '_blank' ),
@@ -336,7 +355,7 @@ sub _install_av_text {
 
 sub _install_avplus_text {
     my ($self) = @_;
-    my $install_plus_url = $self->base_path('scripts13/install_imunifyavplus_SECURITYADVISOR');
+    my $install_plus_url = $self->base_path('scripts14/install_imunifyavplus_SECURITYADVISOR');
     return {
         text       => locale()->maketext("You have an [asis,ImunifyAV+] license, but you do not have [asis,ImunifyAV+] installed on your server."),
         link       => locale()->maketext( "[output,url,_1,Install ImunifyAV+,_2,_3].", $install_plus_url, 'target', '_blank' ),
@@ -416,6 +435,11 @@ sub _server_type {
     );
 
     return 'vm';
+}
+
+sub _can_load_module {
+    my ($mod) = @_;
+    return eval { Cpanel::LoadModule::load_perl_module($mod) };
 }
 
 1;
