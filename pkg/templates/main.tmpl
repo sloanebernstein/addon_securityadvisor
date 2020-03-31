@@ -101,6 +101,16 @@ END; %]
             {{suggestion}}
         </p>
         {{/if}}
+        {{#if landingpage}}
+        <p>
+            <a href={{landingpage.link}} target=_parent>{{landingpage.text}}<a/>
+        </p>
+        {{/if}}
+        {{#if infolink}}
+        <p>
+            <a href={{infolink.link}} target=_blank>{{infolink.text}}<a/>
+        </p>
+        {{/if}}
     </div>
 </script>
 <script id="item-template-warn" type="text/x-handlebars-template">
@@ -276,9 +286,21 @@ Scanner.prototype.parse_comet_message = function(data) {
         var container = document.getElementById(id);
         var advice = data.advice;
         advice.messageId = YAHOO.lang.escapeHTML(advice.key);
+
         if (advice.suggestion) {
             advice.suggestion = new window.Handlebars.SafeString(advice.suggestion);
         }
+
+        if (advice.infolink) {
+            advice.infolink.text = new window.Handlebars.SafeString(advice.infolink.text);
+            advice.infolink.link = new window.Handlebars.SafeString(advice.infolink.link);
+        }
+
+        if (advice.landingpage) {
+            advice.landingpage.text = new window.Handlebars.SafeString(advice.landingpage.text);
+            advice.landingpage.link = new window.Handlebars.SafeString(advice.landingpage.link);
+        }
+
         advice.text = new window.Handlebars.SafeString(advice.text);
 
         var messageEl = document.createElement('div');
