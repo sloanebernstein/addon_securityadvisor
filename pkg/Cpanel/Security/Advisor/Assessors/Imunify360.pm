@@ -76,7 +76,7 @@ sub generate_advice {
 
         # These checks will only run on v88 and highger.
         if ( Cpanel::Version::compare( $cpanel_version, '>=', $IMUNIFYAV_MINIMUM_CPWHM_VERSION )
-            && ( !$self->{i360}{installed} && !$self->{i360}{licensed} ) ) {
+            && !$self->{i360}{installed} ) {
 
             if ( _can_load_module('Whostmgr::Store::Product::ImunifyAVPlus') ) {
 
@@ -215,22 +215,7 @@ sub _suggest_imunify360 {
     my $is_kernelcare_needed = _needs_kernelcare();
     my $link                 = $self->create_purchase_link();
 
-    if ( !$self->{i360}{licensed} && $self->{i360}{installed} ) {
-        my $output = _process_template(
-            \_get_purchase_template(),
-            {
-                'link' => $link,
-            },
-        );
-
-        $self->add_info_advice(
-            key          => 'Imunify360_update_license',
-            text         => locale()->maketext('[asis,Imunify360] is installed but you do not have a current license.'),
-            suggestion   => $$output,
-            block_notify => 1,                                                                                             # Do not send a notification about this
-        );
-    }
-    elsif ( !$self->{i360}{licensed} && !$self->{i360}{installed} ) {
+    if ( !$self->{i360}{installed} ) {
 
         my $output = _process_template(
             \_get_purchase_and_install_template(),
@@ -245,22 +230,6 @@ sub _suggest_imunify360 {
             text         => locale()->maketext('Use [asis,Imunify360] for complete protection against attacks on your servers.'),
             suggestion   => $$output,
             block_notify => 1,                                                                                                      # Do not send a notification about this
-        );
-    }
-    elsif ( !$self->{i360}{installed} ) {
-        my $output = _process_template(
-            \_get_install_template(),
-            {
-                'path'               => $self->base_path( _get_script_number . '/install_imunify360' ),
-                'include_kernelcare' => $is_kernelcare_needed,
-            }
-        );
-
-        $self->add_info_advice(
-            key          => 'Imunify360_install',
-            text         => locale()->maketext('You have an [asis,Imunify360] license, but you do not have [asis,Imunify360] installed on your server.'),
-            suggestion   => $$output,
-            block_notify => 1,                                                                                                                              # Do not send a notification about this
         );
     }
     else {
