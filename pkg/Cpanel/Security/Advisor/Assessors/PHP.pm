@@ -84,8 +84,14 @@ sub _check_for_php_eol {
             'key'        => 'Php_versions_going_eol',
             'type'       => $Cpanel::Security::Advisor::ADVISE_BAD,
             'text'       => $self->_lh->maketext( '[list_and,_1] reached [output,acronym,EOL,End of Life][comment,title]', \@eol_php_versions ),
-            'suggestion' => _make_unordered_list( map { $_->{'text'} } @{ $eol_reco_data->{'options'} } )
-              . $self->_lh->maketext( 'Go to [output,url,_1,MultiPHP Manager page] and update to a supported version.',  $self->base_path('scripts2/multiphp_manager') ) . ' '
+            'suggestion' => _make_unordered_list( map { $_->{'text'} } @{ $eol_reco_data->{'options'} } ) . $self->_lh->maketext(
+                'We recommend that you use the [output,url,_1,MultiPHP Manager,_3,_4] interface to upgrade your domains to a supported version. Then, uninstall this version in the [output,url,_2,EasyApache 4,_3,_4] interface.',
+                $self->base_path('scripts2/multiphp_manager'),
+                $self->base_path('scripts7/EasyApache4'),
+                'target',
+                '_blank'
+              )
+              . ' '
               . $self->_lh->maketext( 'For more information, read [output,url,_1,PHP EOL Documentation,target,_blank].', 'https://www.php.net/supported-versions.php' ),
         }
     );
