@@ -75,7 +75,8 @@ sub generate_advice {
         }
 
         # These checks will only run on v88 and highger.
-        if ( Cpanel::Version::compare( $cpanel_version, '>=', $IMUNIFYAV_MINIMUM_CPWHM_VERSION )
+        if (   Cpanel::Version::compare( $cpanel_version, '>=', $IMUNIFYAV_MINIMUM_CPWHM_VERSION )
+            && $self->{i360}
             && !$self->{i360}{installed} ) {
 
             if ( _can_load_module('Whostmgr::Store::Product::ImunifyAVPlus') ) {
@@ -260,23 +261,26 @@ sub _suggest_imunify360 {
 sub _suggest_iav {
     my ($self) = @_;
 
-    if ( $self->{iav}{installed} && !$self->{iavp}{licensed} ) {
-        $self->add_good_advice(
-            key          => 'ImunifyAV_present',
-            text         => locale()->maketext(q{Your server is protected by [asis,ImunifyAV].}),
-            block_notify => 1,
-            infolink     => {
-                text => locale()->maketext('For help getting started, read the [asis,ImunifyAV] documentation.'),
-                link => 'https://docs.imunifyav.com/imunifyav/'
-            },
-            landingpage => {
-                text => locale()->maketext('Go to [asis,ImunifyAV].'),
-                link => $self->_get_imunify_landing_page(),
-            },
-        );
-    }
-    elsif ( !$self->{iav}{installed} && !$self->{iavp}{licensed} ) {
-        $self->_avplus_advice( action => 'installav', advice => 'bad' );
+    if ( !$self->{iavp}{licensed} ) {
+        if ( $self->{iav}{installed} ) {
+            $self->add_good_advice(
+                key          => 'ImunifyAV_present',
+                text         => locale()->maketext(q{Your server is protected by [asis,ImunifyAV].}),
+                block_notify => 1,
+                infolink     => {
+                    text => locale()->maketext('For help getting started, read the [asis,ImunifyAV] documentation.'),
+                    link => 'https://docs.imunifyav.com/imunifyav/'
+                },
+                landingpage => {
+                    text => locale()->maketext('Go to [asis,ImunifyAV].'),
+                    link => $self->_get_imunify_landing_page(),
+                },
+            );
+        }
+        else {
+            $self->_avplus_advice( action => 'installav', advice => 'bad' );
+        }
+
     }
 
     if ( $self->{iav}{installed} && _can_load_module('Cpanel::RPM') ) {
