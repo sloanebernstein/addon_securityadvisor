@@ -75,8 +75,9 @@ sub generate_advice {
         }
 
         # These checks will only run on v88 and highger.
-        if ( Cpanel::Version::compare( $cpanel_version, '>=', $IMUNIFYAV_MINIMUM_CPWHM_VERSION )
-            && ( !$self->{i360}{installed} && !$self->{i360}{licensed} ) ) {
+        if (   Cpanel::Version::compare( $cpanel_version, '>=', $IMUNIFYAV_MINIMUM_CPWHM_VERSION )
+            && $self->{i360}
+            && !$self->{i360}{installed} ) {
 
             if ( _can_load_module('Whostmgr::Store::Product::ImunifyAVPlus') ) {
 
@@ -111,6 +112,11 @@ sub generate_advice {
     }
 
     return 1;
+}
+
+sub _get_imunify_landing_page {
+    my ($self) = @_;
+    return $self->base_path('cgi/imunify/handlers/index.cgi');
 }
 
 sub _get_purchase_and_install_template {
@@ -215,22 +221,7 @@ sub _suggest_imunify360 {
     my $is_kernelcare_needed = _needs_kernelcare();
     my $link                 = $self->create_purchase_link();
 
-    if ( !$self->{i360}{licensed} && $self->{i360}{installed} ) {
-        my $output = _process_template(
-            \_get_purchase_template(),
-            {
-                'link' => $link,
-            },
-        );
-
-        $self->add_info_advice(
-            key          => 'Imunify360_update_license',
-            text         => locale()->maketext('[asis,Imunify360] is installed but you do not have a current license.'),
-            suggestion   => $$output,
-            block_notify => 1,                                                                                             # Do not send a notification about this
-        );
-    }
-    elsif ( !$self->{i360}{licensed} && !$self->{i360}{installed} ) {
+    if ( !$self->{i360}{installed} ) {
 
         my $output = _process_template(
             \_get_purchase_and_install_template(),
@@ -247,40 +238,20 @@ sub _suggest_imunify360 {
             block_notify => 1,                                                                                                      # Do not send a notification about this
         );
     }
-    elsif ( !$self->{i360}{installed} ) {
-        my $output = _process_template(
-            \_get_install_template(),
-            {
-                'path'               => $self->base_path( _get_script_number . '/install_imunify360' ),
-                'include_kernelcare' => $is_kernelcare_needed,
-            }
-        );
-
-        $self->add_info_advice(
-            key          => 'Imunify360_install',
-            text         => locale()->maketext('You have an [asis,Imunify360] license, but you do not have [asis,Imunify360] installed on your server.'),
-            suggestion   => $$output,
-            block_notify => 1,                                                                                                                              # Do not send a notification about this
-        );
-    }
     else {
-        my $imunify_whm_link = locale()->maketext(
-            '[output,url,_1,Open Imunify360,_2,_3].',
-            $self->base_path('/cgi/imunify/handlers/index.cgi'),
-            'target' => '_parent'
-        );
 
         $self->add_good_advice(
-            key        => 'Imunify360_present',
-            text       => locale()->maketext(q{Your server is protected by [asis,Imunify360].}),
-            suggestion => locale()->maketext(
-                q{For help getting started, read [output,url,_1,Imunify360’s documentation,_2,_3].},
-                'https://go.cpanel.net/imunify360gettingstarted',
-                'target' => '_blank',
-              )
-              . '<br><br>'
-              . $imunify_whm_link,
-            block_notify => 1,    # Do not send a notification about this
+            key          => 'Imunify360_present',
+            text         => locale()->maketext(q{Your server is protected by [asis,Imunify360].}),
+            block_notify => 1,                                                                                                      # Do not send a notification about this
+            infolink     => {
+                text => locale()->maketext('For help getting started, read the [asis,Imunify360] documentation'),
+                link => 'https://go.cpanel.net/imunify360gettingstarted',
+            },
+            landingpage => {
+                text => locale()->maketext('Open Imunify360.'),
+                link => $self->_get_imunify_landing_page(),
+            },
         );
     }
 
@@ -290,10 +261,29 @@ sub _suggest_imunify360 {
 sub _suggest_iav {
     my ($self) = @_;
 
-    if ( !$self->{iav}{installed} && !$self->{iavp}{licensed} ) {
-        $self->_avplus_advice( action => 'installav', advice => 'bad' );
+    if ( !$self->{iavp}{licensed} ) {
+        if ( $self->{iav}{installed} ) {
+            $self->add_good_advice(
+                key          => 'ImunifyAV_present',
+                text         => locale()->maketext(q{Your server is protected by [asis,ImunifyAV].}),
+                block_notify => 1,
+                infolink     => {
+                    text => locale()->maketext('For help getting started, read the [asis,ImunifyAV] documentation.'),
+                    link => 'https://docs.imunifyav.com/imunifyav/'
+                },
+                landingpage => {
+                    text => locale()->maketext('Go to [asis,ImunifyAV].'),
+                    link => $self->_get_imunify_landing_page(),
+                },
+            );
+        }
+        else {
+            $self->_avplus_advice( action => 'installav', advice => 'bad' );
+        }
+
     }
-    elsif ( $self->{iav}{installed} && _can_load_module('Cpanel::RPM') ) {
+
+    if ( $self->{iav}{installed} && _can_load_module('Cpanel::RPM') ) {
 
         my $rpm = Cpanel::RPM->new();
         if ( $rpm->has_rpm('cpanel-clamav') ) {
@@ -321,10 +311,20 @@ sub _suggest_iavp {
         $self->_avplus_advice( action => 'installplus', advice => 'bad' );
     }
     elsif ( $self->{iavp}{installed} && $self->{iavp}{licensed} ) {
+        my $landingpage_url = $self->base_path('cgi/imunify/handlers/index.cgi');
+
         $self->add_good_advice(
             key          => 'ImunifyAV+_present',
             text         => locale()->maketext(q{Your server is protected by [asis,ImunifyAV+].}),
             block_notify => 1,
+            infolink     => {
+                text => locale()->maketext('For help getting started, read the [asis,ImunifyAV+] documentation.'),
+                link => 'https://docs.imunifyav.com/imunifyav/'
+            },
+            landingpage => {
+                text => locale()->maketext('Go to [asis,ImunifyAV+].'),
+                link => $self->_get_imunify_landing_page(),
+            },
         );
     }
 
