@@ -1,6 +1,6 @@
 package Cpanel::Security::Advisor::Assessors::Kernel;
 
-# Copyright (c) 2018, cPanel, Inc.
+# Copyright (c) 2020, cPanel, L.L.C.
 # All rights reserved.
 # http://cpanel.net
 #
@@ -44,34 +44,24 @@ sub version {
 sub generate_advice {
     my ($self) = @_;
 
-    # support for integrated KerneCare purchase/install is supported in 11.64 and above
-    if ( Cpanel::Version::compare( Cpanel::Version::getversionnumber(), '>=', '11.65' ) ) {
+    if ( $self->_has_secure_boot ) {
+        require Cpanel::KernelCare;
+        my $kernelcare_state = Cpanel::KernelCare::get_kernelcare_state();
+        if ( _has_kc_free_patch_set($kernelcare_state) || _has_kc_default_patch_set($kernelcare_state) ) {
+            $self->_secure_boot_info( with_kernelcare => 1 );    # Show a warning that the system is currently in a bad state
+        }
+        else {
+            $self->_secure_boot_info( with_kernelcare => 0 );    # Show an info notice that KernelCare is unavailable when Secure Boot is active
+        }
+    }
+    else {
+        # support for integrated KerneCare purchase/install is supported in 11.64 and above
         require Cpanel::Exception;
         require Cpanel::KernelCare;
         require Cpanel::KernelCare::Availability;
-        $self->_suggest_kernelcare;
-    }
-    elsif ( Cpanel::Version::compare( Cpanel::Version::getversionnumber(), '>=', '11.63' ) ) {
-        require Cpanel::DIp::MainIP;
-        require Cpanel::GenSysInfo;
-        require Cpanel::HTTP::Client;
-        require Cpanel::JSON;
-        require Cpanel::Logger;
-        require Cpanel::NAT;
-        require Cpanel::OSSys::Env;
-        require Cpanel::RPM;
-        $self->_suggest_kernelcare_on_a_cpanel_whm_system_at_v64;
-    }
-
-    if ( Cpanel::Version::compare( Cpanel::Version::getversionnumber(), '<', '11.65' ) ) {
-        require Cpanel::Kernel;
-        require Cpanel::OSSys::Env;
-        require Cpanel::SafeRun::Errors;
-        $self->_check_for_kernel_version_on_a_cpanel_whm_system_at_v64_or_earlier;
-    }
-    else {
-        require Cpanel::Exception;
         require Cpanel::Kernel::Status;
+
+        $self->_suggest_kernelcare;
         $self->_check_for_kernel_version;
     }
 
@@ -95,6 +85,44 @@ sub _get_script_number() {
     my $is_v84_or_older = Cpanel::Version::compare( $current_version, '>=', '11.83' );
 
     return $is_v84_or_older ? 'scripts13' : 'scripts12';
+}
+
+sub _has_secure_boot {
+    require Cpanel::FindBin;
+    require Cpanel::SafeRun::Object;
+
+    my $mokutil_bin = Cpanel::FindBin::findbin('mokutil');
+    return 0 if !$mokutil_bin;
+
+    my $obj = Cpanel::SafeRun::Object->new(
+        program => $mokutil_bin,
+        args    => ['--sb-state'],
+    );
+    return 0 if $obj->CHILD_ERROR;    # "EFI variables are not supported on this system"
+    return ( ( $obj->stdout =~ /SecureBoot enabled/ || $obj->stderr =~ /SecureBoot enabled/ ) ? 1 : 0 );
+}
+
+sub _secure_boot_info {
+    my ( $self, %detail ) = @_;
+
+    if ( $detail{with_kernelcare} ) {
+        $self->add_bad_advice(
+            'key'          => 'Kernel_secureboot_and_kernelcare',
+            'block_notify' => 1,
+            'text'         => $self->_lh->maketext('[asis,KernelCare] is not compatible with Secure Boot.'),
+            'suggestion'   => $self->_lh->maketext('This server uses Secure Boot but also has [asis,KernelCare]. [asis,KernelCare] is not compatible with Secure Boot and may not function correctly.'),
+        );
+    }
+    else {
+        $self->add_info_advice(
+            'key'          => 'Kernel_secureboot_info',
+            'block_notify' => 1,
+            'text'         => $self->_lh->maketext('This server uses Secure Boot.'),
+            'suggestion'   => $self->_lh->maketext('[asis,KernelCare] is not available when Secure Boot is active.'),
+        );
+    }
+
+    return;
 }
 
 sub _suggest_kernelcare {
@@ -433,86 +461,12 @@ sub _make_unordered_list {
     return $output;
 }
 
-###################################################
-#                                                 #
-# Delete everything below here when v64 goes EOL. #
-#                                                 #
-###################################################
-
-our $VERIFY_SSL    = 1;
-our $KC_VERIFY_URL = q{https://verify.cpanel.net};
-our $KC_M2_URL     = q{manage2.cpanel.net};
-
-my $kc_kernelversion = kcare_kernel_version("uname");
-
-sub _suggest_kernelcare_on_a_cpanel_whm_system_at_v64 {
-    my ($self) = @_;
-
-    my $environment  = Cpanel::OSSys::Env::get_envtype();
-    my $sysinfo      = Cpanel::GenSysInfo::run();
-    my $manage2_data = _get_manage2_kernelcare_data();
-    my $rpm          = Cpanel::RPM->new();
-
-    if (    not $rpm->has_rpm(q{kernelcare})
-        and not( $environment eq 'virtuozzo' || $environment eq 'lxc' )
-        and $sysinfo->{'rpm_dist'} ne 'amazon'
-        and not $manage2_data->{'disabled'} ) {
-
-        my $promotion = $self->_lh->maketext('KernelCare provides an easy and effortless way to ensure that your operating system uses the most up-to-date kernel without the need to reboot your server.');
-
-        # check to see this IP has a valid license even if it is not installed
-        if ( _verify_kernelcare_license() ) {
-            $self->add_bad_advice(
-                'key'        => 'Kernel_kernelcare_valid_license_but_not_installed',
-                'text'       => $self->_lh->maketext('Valid KernelCare License Found, but KernelCare is Not Installed.'),
-                'suggestion' => $promotion . ' ' . $self->_lh->maketext(
-                    '[output,url,_1,Click to install,_2,_3].',
-                    $self->base_path( _get_script_number() . '/purchase_kernelcare_completion?order_status=success' ),
-                    'target' => '_parent',
-                ),
-            );
-        }
-        else {
-            my $suggestion = '';
-            if ( $manage2_data->{'url'} ne '' ) {
-                $suggestion = $self->_lh->maketext(
-                    '[output,url,_1,Upgrade to KernelCare,_2,_3].',
-                    $manage2_data->{'url'},
-                    'target' => '_parent',
-                );
-            }
-            elsif ( $manage2_data->{'email'} ne '' ) {
-                $suggestion = $self->_lh->maketext(
-                    'For more information, [output,url,_1,email your provider,_2,_3].',
-                    'mailto:' . $manage2_data->{'email'},
-                    'target' => '_blank',
-                );
-            }
-            else {
-                $suggestion = $self->_lh->maketext(
-                    '[output,url,_1,Upgrade to KernelCare,_2,_3].',
-                    $self->base_path( _get_script_number() . '/purchase_kernelcare_init' ),
-                    'target' => '_parent',
-                );
-            }
-            $self->add_info_advice(
-                'key'          => 'Kernel_kernelcare_purchase',
-                'block_notify' => 1,
-                'text'         => $self->_lh->maketext('Upgrade to KernelCare.'),
-                'suggestion'   => $promotion . ' ' . $suggestion,
-            );
-        }
-    }
-
-    return 1;
-}
-
 sub _get_kernelcare_monthly_price {
     my $kernelcare_price_url = sprintf( "%s/json-api/products/cpstore", $KC_PRICE_URL );
     my $price;
     local $@;
     my $response = eval {
-        my $http = Cpanel::HTTP::Client->new( verify_SSL => $VERIFY_SSL )->die_on_http_error();
+        my $http = Cpanel::HTTP::Client->new( verify_SSL => 1 )->die_on_http_error();
         $http->get($kernelcare_price_url);
     };
 
@@ -531,203 +485,5 @@ sub _get_kernelcare_monthly_price {
     }
     return $price;
 }
-
-sub _verify_kernelcare_license {
-    my $mainserverip = Cpanel::NAT::get_public_ip( Cpanel::DIp::MainIP::getmainserverip() );
-    my $verify_url   = sprintf( "%s/ipaddrs.cgi?ip=%s", $KC_VERIFY_URL, $mainserverip );
-    my $verified;
-    local $@;
-    my $response = eval {
-        my $http = Cpanel::HTTP::Client->new( verify_SSL => $VERIFY_SSL )->die_on_http_error();
-        $http->get($verify_url);
-    };
-
-    # on error
-    return $verified if $@ or not $response;
-
-    my $results = Cpanel::JSON::Load( $response->{'content'} );
-
-    foreach my $current ( @{ $results->{'current'} } ) {
-        if ( $current->{'package'} eq q{CPDIRECT-MONTHLY-KERNELCARE} and $current->{'product'} eq q{KernelCare} and $current->{'status'} eq 1 and $current->{'valid'} eq 1 ) {
-            ++$verified;
-            last;
-        }
-    }
-    return $verified;
-}
-
-sub _get_manage2_kernelcare_data {
-    my $companyfile = q{/var/cpanel/companyid};
-    my $cid         = q{};
-    if ( open my $fh, "<", $companyfile ) {
-        $cid = <$fh>;
-        chomp $cid;
-        close $fh;
-    }
-
-    my $url = sprintf( 'https://%s/kernelcare.cgi?companyid=%d', $KC_M2_URL, $cid );
-    local $@;
-    my $raw_resp = eval {
-        my $http = Cpanel::HTTP::Client->new( verify_SSL => $VERIFY_SSL, timeout => 10 )->die_on_http_error();
-        $http->get($url);
-    };
-
-    # on error
-    return { disabled => 0, url => '', email => '' } if $@ or not $raw_resp;
-
-    my $json_resp;
-    if ( $raw_resp->{'success'} ) {
-        eval { $json_resp = Cpanel::JSON::Load( $raw_resp->{'content'} ) };
-
-        if ($@) {
-            $json_resp = { disabled => 0, url => '', email => '' };
-        }
-    }
-    else {
-        $json_resp = { disabled => 0, url => '', email => '' };
-    }
-
-    return $json_resp;
-}
-
-sub _check_for_kernel_version_on_a_cpanel_whm_system_at_v64_or_earlier {
-    my ($self) = @_;
-
-    my %kernel_update = kernel_updates();
-    my @kernel_update = ();
-    if ( ( keys %kernel_update ) ) {
-        foreach my $update ( keys %kernel_update ) {
-            unshift( @kernel_update, $kernel_update{$update} );
-        }
-    }
-
-    my $boot_kernelversion    = Cpanel::Kernel::get_default_boot_version();
-    my $running_kernelversion = Cpanel::Kernel::get_running_version();
-    my $environment           = Cpanel::OSSys::Env::get_envtype();
-
-    if ( $running_kernelversion =~ m/\.(?:noarch|x86_64|i.86).+$/ ) {
-        $self->add_info_advice(
-            'key'  => 'Kernel_can_not_check',
-            'text' => $self->_lh->maketext( 'Custom kernel version cannot be checked to see if it is up to date: [_1]', $running_kernelversion )
-        );
-    }
-    elsif ( ( $environment eq 'virtuozzo' ) || ( $environment eq 'lxc' ) ) {
-        $self->add_info_advice(
-            'key'  => 'Kernel_unsupported_environment',
-            'text' => $self->_lh->maketext('Kernel updates are not supported on this virtualization platform. Be sure to keep the host’s kernel up to date.')
-        );
-    }
-    elsif ( (@kernel_update) && ($kc_kernelversion) ) {
-        if ( kcare_kernel_version("check") eq "New version available" ) {
-            $self->add_bad_advice(
-                'key'  => 'Kernel_kernelcare_update_available',
-                'text' => $self->_lh->maketext(
-                    'Kernel patched with KernelCare, but out of date. running kernel: [_1], most recent kernel: [list_and,_2]',
-                    $kc_kernelversion,
-                    \@kernel_update,
-                ),
-                'suggestion' => $self->_lh->maketext('This can be resolved either by running ’/usr/bin/kcarectl --update’ from the command line to begin an update of the KernelCare kernel version, or by running ’yum update’ from the command line and rebooting the system.'),
-            );
-        }
-        else {
-            $self->add_info_advice(
-                'key'  => 'Kernel_waiting_for_kernelcare_update',
-                'text' => $self->_lh->maketext(
-                    'Kernel patched with KernelCare, but awaiting further updates. running kernel: [_1], most recent kernel: [list_and,_2]',
-                    $kc_kernelversion,
-                    \@kernel_update,
-                ),
-                'suggestion' => $self->_lh->maketext('The kernel will likely be patched to the current version within the next few days. If this delay is unacceptable, update the system’s software by running ’yum update’ from the command line and reboot the system.'),
-            );
-        }
-    }
-    elsif ( (@kernel_update) ) {
-        $self->add_bad_advice(
-            'key'  => 'Kernel_outdated',
-            'text' => $self->_lh->maketext(
-                'Current kernel version is out of date. running kernel: [_1], most recent kernel: [list_and,_2]',
-                $running_kernelversion,
-                \@kernel_update,
-            ),
-            'suggestion' => $self->_lh->maketext('Update the system’s software by running ’yum update’ from the command line and reboot the system.'),
-        );
-    }
-    elsif ($kc_kernelversion) {
-        $self->add_good_advice(
-            'key'  => 'Kernel_kernelcare_is_current',
-            'text' => $self->_lh->maketext( 'KernelCare is installed and current running kernel version is up to date: [_1]', $kc_kernelversion )
-        );
-    }
-    elsif ( ( $running_kernelversion ne $boot_kernelversion ) ) {
-        $self->add_bad_advice(
-            'key'  => 'Kernel_boot_running_mismatch',
-            'text' => $self->_lh->maketext(
-                'Current kernel version does not match the kernel version for boot. running kernel: [_1], boot kernel: [_2]',
-                $running_kernelversion,
-                $boot_kernelversion
-            ),
-            'suggestion' => $self->_lh->maketext(
-                'Reboot the system in the "[output,url,_1,Graceful Server Reboot,_2,_3]" area. Check the boot configuration in grub.conf if the new kernel is not loaded after a reboot.',
-                $self->base_path('scripts/dialog?dialog=reboot'),
-                'target',
-                '_blank'
-            ),
-        );
-    }
-    else {
-        $self->add_good_advice(
-            'key'  => 'Kernel_running_is_current',
-            'text' => $self->_lh->maketext( 'Current running kernel version is up to date: [_1]', $running_kernelversion )
-        );
-    }
-
-    return 1;
-}
-
-sub kernel_updates {
-    my %kernel_update;
-    my @args         = qw(yum -d 0 info updates kernel);
-    my @yum_response = Cpanel::SafeRun::Errors::saferunnoerror(@args);
-    my ( $rpm, $arch, $version, $release );
-
-    foreach my $element ( 0 .. $#yum_response ) {
-        $rpm     = ( split( /:/, $yum_response[$element] ) )[1] if ( ( $yum_response[$element] =~ m/^Name/ ) );
-        $arch    = ( split( /:/, $yum_response[$element] ) )[1] if ( ( $yum_response[$element] =~ m/^Arch/ ) );
-        $version = ( split( /:/, $yum_response[$element] ) )[1] if ( ( $yum_response[$element] =~ m/^Version/ ) );
-        $release = ( split( /:/, $yum_response[$element] ) )[1] if ( ( $yum_response[$element] =~ m/^Release/ ) );
-        if ( ( ($rpm) && ($arch) && ($version) && ($release) ) ) {
-            s/\s//g foreach ( $rpm, $arch, $version, $release );
-            if ( $kc_kernelversion ne ( $version . "-" . $release . "." . $arch ) && $kc_kernelversion ne ( $version . "-" . $release ) ) {
-                $kernel_update{ $rpm . " " . $version . "-" . $release } = $version . "-" . $release . "." . $arch;
-                $rpm                                                     = undef;
-                $arch                                                    = undef;
-                $version                                                 = undef;
-                $release                                                 = undef;
-            }
-        }
-    }
-
-    return %kernel_update;
-}    # end of sub
-
-sub kcare_kernel_version {
-    my @args;
-    my $kc_response = "";
-
-    if ( -f "/usr/bin/kcarectl" ) {
-        @args        = ( "/usr/bin/kcarectl", "--" . "$_[0]" );
-        $kc_response = Cpanel::SafeRun::Errors::saferunnoerror(@args);
-        $kc_response =~ s/\+$//;
-        chomp $kc_response;
-    }
-
-    return $kc_response;
-}
-
-########################################
-#                                      #
-# Delete above here when v64 goes EOL. #
-#                                      #
-########################################
 
 1;
