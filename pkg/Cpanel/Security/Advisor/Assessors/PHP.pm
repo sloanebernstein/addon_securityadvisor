@@ -85,8 +85,9 @@ sub _check_for_php_eol {
             'type'       => $Cpanel::Security::Advisor::ADVISE_BAD,
             'text'       => $self->_lh->maketext( '[list_and,_1] reached [output,acronym,EOL,End of Life][comment,title]', \@eol_php_versions ),
             'suggestion' => _make_unordered_list( map { $_->{'text'} } @{ $eol_reco_data->{'options'} } ) . $self->_lh->maketext(
-                'We recommend that you use the [output,url,_1,MultiPHP Manager,_3,_4] interface to upgrade your domains to a supported version. Then, uninstall this version in the [output,url,_2,EasyApache 4,_3,_4] interface.',
+                'We recommend that you use the [output,url,_1,MultiPHP Manager,_4,_5] interface to upgrade your domains to a supported version. Then, uninstall [numerate,_2,this version,these versions] in the [output,url,_3,EasyApache 4,_4,_5] interface.',
                 $self->base_path('scripts2/multiphp_manager'),
+                scalar @eol_php_versions,
                 $self->base_path('scripts7/EasyApache4'),
                 'target',
                 '_blank'
