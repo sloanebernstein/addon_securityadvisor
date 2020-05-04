@@ -131,12 +131,26 @@ sub _suggest_kernelcare {
     # Abort if the system won't benefit from KernelCare.
     return if !Cpanel::KernelCare::system_supports_kernelcare() || Cpanel::Security::Advisor::Assessors::Symlinks->new->has_cpanel_hardened_kernel();
 
-    # Abort if kernelcare is already licensend
-    return if eval { Cpanel::KernelCare::Availability::system_license_from_cpanel(); };
-
     my $kernelcare_state = Cpanel::KernelCare::get_kernelcare_state();
 
     my ( $promotion, $note );
+
+    # Alert that this IP has a valid KernelCare license, but the RPM is not installed (offer link to install it)
+    $promotion = $self->_lh->maketext('KernelCare provides an easy and effortless way to ensure that your operating system uses the most up-to-date kernel without the need to reboot your server.');
+    if ( $kernelcare_state == $Cpanel::KernelCare::KC_MISSING ) {
+        $self->add_bad_advice(
+            'key'        => 'Kernel_kernelcare_valid_license_but_not_installed',
+            'text'       => $self->_lh->maketext('Valid KernelCare License Found, but KernelCare is Not Installed.'),
+            'suggestion' => $promotion . ' ' . $self->_lh->maketext(
+                '[output,url,_1,Click to install,_2,_3].',
+                $self->base_path( _get_script_number() . '/purchase_kernelcare_completion?order_status=success' ),
+                'target' => '_parent',
+            ),
+        );
+    }
+
+    # Abort if kernelcare is already licensed
+    return if eval { Cpanel::KernelCare::Availability::system_license_from_cpanel(); };
 
     # Show alert for free state, even if we don't know "company_advertising_preferences"; show if KernelCare is
     # not installed or just the default (paid) patch is applied; do not show if free patch set or extra patch set
@@ -200,23 +214,9 @@ sub _suggest_kernelcare {
     # Abort if the customer requested we don't advertise - applies only to alert to pay for a license.
     return if $advertising_preference->{disabled};
 
-    # Alert that this IP has a valid KernelCare license, but the RPM is not installed (offer link to install it)
-    $promotion = $self->_lh->maketext('KernelCare provides an easy and effortless way to ensure that your operating system uses the most up-to-date kernel without the need to reboot your server.');
-    if ( $kernelcare_state == $Cpanel::KernelCare::KC_MISSING ) {
-        $self->add_bad_advice(
-            'key'        => 'Kernel_kernelcare_valid_license_but_not_installed',
-            'text'       => $self->_lh->maketext('Valid KernelCare License Found, but KernelCare is Not Installed.'),
-            'suggestion' => $promotion . ' ' . $self->_lh->maketext(
-                '[output,url,_1,Click to install,_2,_3].',
-                $self->base_path( _get_script_number() . '/purchase_kernelcare_completion?order_status=success' ),
-                'target' => '_parent',
-            ),
-        );
-    }
-
     # Offer KernelCare upgrade to a paid license if KernelCare is either not installed or if KernelCare is installed and just the free patch set is applied
     #TODO - successful purchase flow handler needs to be updated to look for KC RPM/free patch set and merely apply default patch set if kernelcare is already installed
-    elsif ( !_has_kc_default_patch_set($kernelcare_state) ) {
+    if ( !_has_kc_default_patch_set($kernelcare_state) ) {
         my $suggestion;
         if ( $advertising_preference->{'url'} ) {
             $suggestion = $self->_lh->maketext(
