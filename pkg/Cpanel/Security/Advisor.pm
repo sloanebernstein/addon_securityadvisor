@@ -1,6 +1,6 @@
 package Cpanel::Security::Advisor;
 
-# Copyright (c) 2016, cPanel, Inc.
+# Copyright (c) 2020, cPanel, L.L.C.
 # All rights reserved.
 # http://cpanel.net
 #
@@ -202,7 +202,7 @@ sub generate_advice {
     my ($self) = @_;
 
     $self->_internal_message( { type => 'scan_run', state => 0 } );
-    foreach my $mod ( @{ $self->{'assessors'} } ) {
+    foreach my $mod ( sort { lc $a->{'name'} cmp lc $b->{'name'} } @{ $self->{'assessors'} } ) {
         my $module         = $mod->{'name'};
         my $version_ref    = "$module"->can('version');
         my $module_version = $version_ref ? $version_ref->() : '';
