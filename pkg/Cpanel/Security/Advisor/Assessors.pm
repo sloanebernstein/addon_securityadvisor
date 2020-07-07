@@ -1,6 +1,6 @@
 package Cpanel::Security::Advisor::Assessors;
 
-# Copyright (c) 2013, cPanel, Inc.
+# Copyright (c) 2020, cPanel, L.L.C.
 # All rights reserved.
 # http://cpanel.net
 #
@@ -27,11 +27,13 @@ package Cpanel::Security::Advisor::Assessors;
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use strict;
+use warnings;
 
 our $VERISON = 1.1;
 
 use Cpanel::SafeRun::Full    ();
 use Cpanel::Version::Compare ();
+use Cpanel::Exception        ();
 
 sub new {
     my ( $class, $security_advisor_obj ) = @_;
@@ -90,15 +92,13 @@ sub add_bad_advice {
 sub get_available_rpms {
     my ($self) = @_;
 
-    my $cache = $self->{'security_advisor_obj'}->{'_cache'};
+    my $cache = ( $self->{'security_advisor_obj'}->{'_cache'} //= {} );
 
     return $cache->{'available_rpms'} if $cache->{'available_rpms'};
 
     my $output = Cpanel::SafeRun::Full::run(
         'program' => Cpanel::FindBin::findbin('yum'),
-        'args'    => [
-            '-d', '0', 'list', 'all',
-        ],
+        'args'    => [qw/-d 0 list all/],
         'timeout' => 90,
     );
 
@@ -109,13 +109,16 @@ sub get_available_rpms {
         };
     }
 
+    $cache->{'timed_out'} = 1 if $output->{'timeout'};
+    $cache->{'died'}      = 1 if $output->{'exit_value'} || $output->{'died_from_signal'};
+
     return $cache->{'available_rpms'};
 }
 
 sub get_installed_rpms {
     my ($self) = @_;
 
-    my $cache = $self->{'security_advisor_obj'}->{'_cache'};
+    my $cache = ( $self->{'security_advisor_obj'}->{'_cache'} //= {} );
 
     return $cache->{'installed_rpms'} if $cache->{'installed_rpms'};
 
@@ -134,19 +137,15 @@ sub get_installed_rpms {
                 my ( $this_version,      $this_release )      = split( m/-/, $version,         2 );
                 my ( $installed_version, $installed_release ) = split( m/-/, $installed{$rpm}, 2 );
 
-                if (
-                    Cpanel::Version::Compare::compare( $installed_version, '>', $this_version )
-                    ||
-
-                    ( $this_version eq $installed_version && Cpanel::Version::Compare::compare( $installed_release, '>', $this_release ) )
-                  ) {
-                    next;
-                }
+                next if ( Cpanel::Version::Compare::compare( $installed_version, '>', $this_version ) || ( $this_version eq $installed_version && Cpanel::Version::Compare::compare( $installed_release, '>', $this_release ) ) );
             }
             $installed{$rpm} = $version;
         }
         $cache->{'installed_rpms'} = \%installed;
     }
+
+    $cache->{'timed_out'} = 1 if $output->{'timeout'};
+    $cache->{'died'}      = 1 if $output->{'exit_value'} || $output->{'died_from_signal'};
 
     return $cache->{'installed_rpms'};
 }
@@ -157,9 +156,9 @@ sub get_running_kernel_type {
     my $redhat_release = Cpanel::LoadFile::loadfile('/etc/redhat-release');
     my $kernel_type =
         ( ( $kallsyms =~ /\[(kmod)?lve\]/ ) && ( $redhat_release =~ /CloudLinux/ ) ) ? 'cloudlinux'
-      : ( $kallsyms =~ /grsec/ )     ? 'grsec'
-      : ( -e '/etc/redhat-release' ) ? 'other'
-      :                                '';
+      : ( $kallsyms =~ /grsec/ )                                                     ? 'grsec'
+      : ( -e '/etc/redhat-release' )                                                 ? 'other'
+      :                                                                                '';
     return $kernel_type;
 }
 
