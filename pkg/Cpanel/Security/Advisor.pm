@@ -61,10 +61,14 @@ use strict;
 
 our $VERSION = 1.04;
 
-use Cpanel::Config::LoadCpConf ();
-use Cpanel::Logger             ();
-use Cpanel::JSON               ();
-use Cpanel::Locale             ();
+use Cpanel::Config::LoadCpConf   ();
+use Cpanel::Logger               ();
+use Cpanel::JSON                 ();
+use Cpanel::Locale               ();
+use Cpanel::LoadModule           ();
+use Cpanel::LoadModule::AllNames ();
+
+use Try::Tiny;
 
 our $ADVISE_GOOD = 1;
 our $ADVISE_INFO = 2;
@@ -149,17 +153,6 @@ sub new {
     die "No comet object provided"  unless ( $options{'comet'} );
     die "No comet channel provided" unless ( $options{'channel'} );
 
-    my %all_modules;
-    foreach my $dir ( '/usr/local/cpanel/Cpanel/Security/Advisor/Assessors', '/var/cpanel/addons/securityadvisor/perl/Cpanel/Security/Advisor/Assessors' ) {
-        if ( opendir( my $advisor_module_dir, $dir ) ) {
-            foreach my $mod ( readdir($advisor_module_dir) ) {
-                next if $mod !~ m/\.pm$/;
-                $all_modules{$mod} = 1;
-            }
-            closedir($advisor_module_dir);
-        }
-    }
-    my @modules = sort keys %all_modules;
     my @assessors;
 
     my $self = bless {
@@ -173,22 +166,19 @@ sub new {
         'locale'    => Cpanel::Locale->get_handle(),
     }, $class;
 
-    foreach my $module (@modules) {
-        my $module_name = $module;
-        $module_name =~ s/(.*)\.pm$/Cpanel::Security::Advisor::Assessors::$1/g;
-
-        eval "require $module_name;";
-        if ($@) {
-            $self->{'logger'}->warn("Failed to load $module_name: $@");
-            $self->_internal_message( { type => 'mod_load', state => 0, module => $module_name, message => "$@" } );
-            next;
+    local @INC = ( @INC, '/var/cpanel/addons/securityadvisor/perl' );
+    my @modules = sort keys %{ Cpanel::LoadModule::AllNames::get_loadable_modules_in_namespace('Cpanel::Security::Advisor::Assessors') };
+    foreach my $module_name (@modules) {
+        my $object;
+        try {
+            Cpanel::LoadModule::load_perl_module($module_name);
+            $object = $module_name->new($self);
         }
-        my $object = eval { "$module_name"->new($self); };
-        if ($@) {
-            $self->{'logger'}->warn("Failed to new $module_name: $@");
-            $self->_internal_message( { type => 'mod_load', state => 0, module => $module_name, message => "$@" } );
-            next;
-        }
+        catch {
+            $self->{'logger'}->warn("Failed to load $module_name: $_");
+            $self->_internal_message( { type => 'mod_load', state => 0, module => $module_name, message => "$_" } );
+        };
+        next unless $object;
 
         push @assessors, { name => $module_name, object => $object };
         my $runtime = ( $object->can('estimated_runtime') ? $object->estimated_runtime() : 1 );
