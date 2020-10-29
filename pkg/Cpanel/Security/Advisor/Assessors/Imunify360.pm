@@ -396,7 +396,7 @@ sub _is_imunify_supported {
 
     my $centos_version = Cpanel::Sys::OS::Check::get_strict_centos_version();
     my $os             = Cpanel::Sys::GetOS::getos();
-    my $os_ok          = ( ( $os =~ /^centos$/ && ( $centos_version == 6 || $centos_version == 7 ) ) || $os =~ /^cloudlinux$/i );
+    my $os_ok          = ( ( $os =~ /^centos$/ && ( $centos_version >= 6 ) ) || $os =~ /^cloudlinux$/i );
     return $os_ok;
 }
 
@@ -405,7 +405,7 @@ sub _needs_kernelcare {
 
     # This is only needed on CentOS 6 and 7. CloudLinux already has symlink protection built in,
     # and other distros (RHEL, Amazon Linux, etc.) are not supported.
-    return 0 if not defined $centos_version or ( $centos_version != 6 and $centos_version != 7 );
+    return 0 if not defined $centos_version or ( $centos_version < 6 );
 
     # It doesn't make sense to attempt to manage the kernel of a container from within the container.
     return 0 if _server_type() eq 'container';
