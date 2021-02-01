@@ -68,6 +68,13 @@ sub _check_for_apache_chroot {
 
     my $security_advisor_obj = $self->{'security_advisor_obj'};
 
+    # See Cpanel::HttpUtils::ApRestart for where this regex is from
+    my $names_list = join( '|', map { '^' . $_, '/' . $_ } qw{litespeed lscgid} );
+    my $ls_regexp  = qr/$names_list/i;
+
+    require Cpanel::PsParser;
+    my $litespeed_running = Cpanel::PsParser::get_pids_by_name( $ls_regexp, [ "root", "nobody" ] );
+
     if ( $security_advisor_obj->{'cpconf'}->{'jailapache'} ) {
         $security_advisor_obj->add_advice(
             {
@@ -83,6 +90,21 @@ sub _check_for_apache_chroot {
                 'key'  => 'Apache_cagefs_is_enabled',
                 'type' => $Cpanel::Security::Advisor::ADVISE_GOOD,
                 'text' => $self->_lh->maketext('CageFS is enabled'),
+            }
+        );
+    }
+    elsif ($litespeed_running) {
+        $security_advisor_obj->add_advice(
+            {
+                'key'        => 'Apache_litespeed_is_running',
+                'type'       => $Cpanel::Security::Advisor::ADVISE_WARN,
+                'text'       => $self->_lh->maketext('LiteSpeed vhosts are not segmented or chroot()ed.'),
+                'suggestion' => $self->_lh->maketext(
+                    'Consider a more robust solution by using “[output,url,_1,CageFS on CloudLinux,_2,_3]”.',
+                    'https://go.cpanel.net/cloudlinux',
+                    'target',
+                    '_blank'
+                ),
             }
         );
     }
