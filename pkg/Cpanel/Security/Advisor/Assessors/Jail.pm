@@ -1,6 +1,6 @@
 package Cpanel::Security::Advisor::Assessors::Jail;
 
-# Copyright (c) 2013, cPanel, Inc.
+# Copyright (c) 2021, cPanel, L.L.C.
 # All rights reserved.
 # http://cpanel.net
 #
@@ -46,7 +46,7 @@ sub _check_for_unjailed_users {
 
     my $security_advisor_obj = $self->{'security_advisor_obj'};
 
-    if ( !-x '/usr/bin/cagefsctl' && !-x '/usr/sbin/cagefsctl' ) {
+    if ( $self->cagefs_is_enabled() ) {
         if ( -e '/var/cpanel/conf/jail/flags/mount_usr_bin_suid' ) {
             $security_advisor_obj->add_advice(
                 {
@@ -64,7 +64,7 @@ sub _check_for_unjailed_users {
         }
 
         Cpanel::PwCache::init_passwdless_pwcache();
-        my %cpusers = map { $_ => undef } Cpanel::Config::Users::getcpusers();
+        my %cpusers          = map { $_ => undef } Cpanel::Config::Users::getcpusers();
         my %wheel_users_hash = map { $_ => 1 } split( ' ', ( getgrnam('wheel') )[3] );
         delete $wheel_users_hash{'root'};    # We don't care about root being in the wheel group
 
