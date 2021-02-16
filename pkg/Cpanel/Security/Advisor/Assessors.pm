@@ -1,6 +1,6 @@
 package Cpanel::Security::Advisor::Assessors;
 
-# Copyright (c) 2020, cPanel, L.L.C.
+# Copyright (c) 2021, cPanel, L.L.C.
 # All rights reserved.
 # http://cpanel.net
 #
@@ -165,6 +165,36 @@ sub get_running_kernel_type {
 sub _lh {
     my ($self) = @_;
     return $self->{'security_advisor_obj'}{'locale'};
+}
+
+sub get_cagefsctl_bin {
+    my ($self) = @_;
+
+    my @bins = (
+        '/usr/bin/cagefsctl',
+        '/usr/sbin/cagefsctl',
+    );
+
+    foreach my $bin (@bins) {
+        return $bin if ( -x $bin );
+    }
+
+    return;
+}
+
+sub cagefs_is_enabled {
+    my ($self) = @_;
+
+    my $cagefsctl = $self->get_cagefsctl_bin();
+    return 0 unless $cagefsctl;
+
+    require Cpanel::SafeRun::Object;
+    my $run = Cpanel::SafeRun::Object->new(
+        program => $cagefsctl,
+        args    => ["--cagefs-status"]
+    );
+
+    return ( $run->stdout() =~ /enabled/i ) ? 1 : 0;
 }
 
 1;

@@ -1,6 +1,6 @@
 package Cpanel::Security::Advisor::Assessors::Apache;
 
-# Copyright (c) 2018, cPanel, L.L.C.
+# Copyright (c) 2021, cPanel, L.L.C.
 # All rights reserved.
 # http://cpanel.net
 #
@@ -84,7 +84,7 @@ sub _check_for_apache_chroot {
             }
         );
     }
-    elsif ( -x '/usr/bin/cagefsctl' || -x '/usr/sbin/cagefsctl' ) {
+    elsif ( $self->cagefs_is_enabled() ) {
         $security_advisor_obj->add_advice(
             {
                 'key'  => 'Apache_cagefs_is_enabled',
