@@ -75,16 +75,7 @@ sub _check_for_apache_chroot {
     require Cpanel::PsParser;
     my $litespeed_running = Cpanel::PsParser::get_pids_by_name( $ls_regexp, [ "root", "nobody" ] );
 
-    if ( $security_advisor_obj->{'cpconf'}->{'jailapache'} ) {
-        $security_advisor_obj->add_advice(
-            {
-                'key'  => 'Apache_jailed_apache_is_enabled',
-                'type' => $Cpanel::Security::Advisor::ADVISE_GOOD,
-                'text' => $self->_lh->maketext('Jailed Apache is enabled'),
-            }
-        );
-    }
-    elsif ( $self->cagefs_is_enabled() ) {
+    if ( $self->cagefs_is_enabled() ) {
         $security_advisor_obj->add_advice(
             {
                 'key'  => 'Apache_cagefs_is_enabled',
@@ -105,6 +96,15 @@ sub _check_for_apache_chroot {
                     'target',
                     '_blank'
                 ),
+            }
+        );
+    }
+    elsif ( $security_advisor_obj->{'cpconf'}->{'jailapache'} ) {
+        $security_advisor_obj->add_advice(
+            {
+                'key'  => 'Apache_jailed_apache_is_enabled',
+                'type' => $Cpanel::Security::Advisor::ADVISE_GOOD,
+                'text' => $self->_lh->maketext('Jailed Apache is enabled'),
             }
         );
     }
