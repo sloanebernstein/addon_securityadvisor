@@ -36,7 +36,6 @@ use Cpanel::HTTP::Client    ();
 use Cpanel::JSON            ();
 use Cpanel::SafeRun::Object ();
 use Cpanel::Sys::OS::Check  ();
-use Cpanel::Sys::GetOS      ();
 use Cpanel::Template        ();
 use Cpanel::LoadModule      ();
 
@@ -59,7 +58,7 @@ sub generate_advice {
         # These checks will only run on v80 and higher
         if (   Cpanel::Version::compare( $cpanel_version, '>=', $IMUNIFY360_MINIMUM_CPWHM_VERSION )
             && _can_load_module('Whostmgr::Imunify360')
-            && _is_imunify_supported() ) {
+            && Whostmgr::Imunify360->new->should_offer() ) {
 
             $self->{i360} = {
                 data      => Whostmgr::Imunify360::get_imunify360_data(),
@@ -390,14 +389,6 @@ sub _avplus_advice {
 
     my $method = "add_$args{advice}_advice";
     return $self->$method(%advice);
-}
-
-sub _is_imunify_supported {
-
-    my $centos_version = Cpanel::Sys::OS::Check::get_strict_centos_version();
-    my $os             = Cpanel::Sys::GetOS::getos();
-    my $os_ok          = ( ( $os =~ /^centos$/ && ( $centos_version >= 6 ) ) || $os =~ /^cloudlinux$/i );
-    return $os_ok;
 }
 
 sub _needs_kernelcare {
