@@ -34,8 +34,8 @@ use Cpanel::Config::Sources ();
 use Cpanel::Version         ();
 use Cpanel::HTTP::Client    ();
 use Cpanel::JSON            ();
+use Cpanel::OS              ();
 use Cpanel::SafeRun::Object ();
-use Cpanel::Sys::OS::Check  ();
 use Cpanel::Template        ();
 use Cpanel::LoadModule      ();
 
@@ -392,7 +392,7 @@ sub _avplus_advice {
 }
 
 sub _needs_kernelcare {
-    my $centos_version = Cpanel::Sys::OS::Check::get_strict_centos_version();
+    my $centos_version = Cpanel::OS->instance()->major();
 
     # This is only needed on CentOS 6 and 7. CloudLinux already has symlink protection built in,
     # and other distros (RHEL, Amazon Linux, etc.) are not supported.
