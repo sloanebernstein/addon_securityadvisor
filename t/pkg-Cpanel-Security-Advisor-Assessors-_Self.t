@@ -1,6 +1,6 @@
 #!/usr/local/cpanel/3rdparty/bin/perl
 
-# Copyright (c) 2020, cPanel, L.L.C.
+# Copyright (c) 2021, cPanel, L.L.C.
 # All rights reserved.
 # http://cpanel.net
 #
@@ -54,6 +54,10 @@ $ENV{'REQUEST_URI'} = '';
 
 can_ok( 'Cpanel::Security::Advisor::Assessors::_Self', qw(version generate_advice) );
 
+# Mock for Cpanel::FindBin::findbin:
+my $mock_findbin = Test::MockModule->new('Cpanel::FindBin');
+$mock_findbin->redefine( findbin => '/usr/bin/rpm' );
+
 subtest 'RPM times out' => sub {
     plan tests => 1;
 
@@ -74,9 +78,9 @@ subtest 'RPM times out' => sub {
         }
     );
     my $expected = {
-        'type' => $Cpanel::Security::Advisor::ADVISE_BAD,
-        'key'  => 'RPM_timed_out',
-        'text' => Cpanel::Locale::lh()->maketext('Security Advisor timed out while reading the RPM database of packages.'),
+        'type'       => $Cpanel::Security::Advisor::ADVISE_BAD,
+        'key'        => 'RPM_timed_out',
+        'text'       => Cpanel::Locale::lh()->maketext('Security Advisor timed out while reading the RPM database of packages.'),
         'suggestion' =>
           Cpanel::Locale::lh()->maketext( "Security Advisor may include inaccurate results until it can fully read the RPM database. To resolve this, reduce the load on your system and then rebuild the RPM database with the following interface: [output,url,_1,Rebuild RPM Database,_2,_3].", Cpanel::Security::Advisor::Assessors->base_path('scripts/dialog?dialog=rebuildrpmdb'), 'target', '_blank' ),
         'block_notify' => 1,

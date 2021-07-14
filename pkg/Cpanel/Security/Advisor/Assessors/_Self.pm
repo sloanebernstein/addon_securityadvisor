@@ -1,6 +1,6 @@
 package Cpanel::Security::Advisor::Assessors::_Self;
 
-# Copyright (c) 2020, cPanel, L.L.C.
+# Copyright (c) 2021, cPanel, L.L.C.
 # All rights reserved.
 # http://cpanel.net
 #
@@ -31,6 +31,7 @@ use warnings;
 use base 'Cpanel::Security::Advisor::Assessors';
 
 use Cpanel::RPM::Versions::File ();
+use Cpanel::Version             ();
 
 # The purpose of this assessor module is to report conditions which may render
 # the provided advice untrustworthy or invalid. Currently, this is limited to
@@ -41,12 +42,21 @@ use Cpanel::RPM::Versions::File ();
 # Round down to one significant figure.
 use constant OS_RPM_COUNT_WARN_THRESHOLD => 100;
 
-sub version { return '1.00'; }
+sub version { return '1.01'; }
 
 sub generate_advice {
     my ($self) = @_;
 
-    $self->_check_rpm();
+    # XXX assume distro is RPM-based if cPanel version is past version 98
+    # Below can be simplified once support for these older versions ends.
+    my $is_rpm_based   = 1;
+    my $cpanel_version = Cpanel::Version::getversionnumber();
+    if ( Cpanel::Version::compare( $cpanel_version, '>=', '11.99' ) ) {
+        require Cpanel::OS;
+        $is_rpm_based &&= Cpanel::OS::is_rpm_based();
+    }
+
+    $self->_check_rpm() if $is_rpm_based;
 
     return 1;
 }
