@@ -1,6 +1,6 @@
 package Cpanel::Security::Advisor::Assessors::Imunify360;
 
-# Copyright (c) 2019, cPanel, L.L.C.
+# Copyright (c) 2021, cPanel, L.L.C.
 # All rights reserved.
 # http://cpanel.net
 #
@@ -30,14 +30,9 @@ use strict;
 use warnings;
 use base 'Cpanel::Security::Advisor::Assessors';
 
-use Cpanel::Config::Sources ();
-use Cpanel::Version         ();
-use Cpanel::HTTP::Client    ();
-use Cpanel::JSON            ();
-use Cpanel::OS              ();
-use Cpanel::SafeRun::Object ();
-use Cpanel::Template        ();
-use Cpanel::LoadModule      ();
+use Cpanel::LoadModule ();
+use Cpanel::Template   ();
+use Cpanel::Version    ();
 
 use Cpanel::Imports;
 
@@ -217,7 +212,7 @@ sub create_purchase_link {
 sub _suggest_imunify360 {
     my ($self) = @_;
 
-    my $is_kernelcare_needed = _needs_kernelcare();
+    my $is_kernelcare_needed = Whostmgr::Imunify360->new()->needs_kernelcare();
     my $link                 = $self->create_purchase_link();
 
     if ( !$self->{i360}{installed} ) {
@@ -389,43 +384,6 @@ sub _avplus_advice {
 
     my $method = "add_$args{advice}_advice";
     return $self->$method(%advice);
-}
-
-sub _needs_kernelcare {
-    my $centos_version = Cpanel::OS->instance()->major();
-
-    # This is only needed on CentOS 6 and 7. CloudLinux already has symlink protection built in,
-    # and other distros (RHEL, Amazon Linux, etc.) are not supported.
-    return 0 if not defined $centos_version or ( $centos_version < 6 );
-
-    # It doesn't make sense to attempt to manage the kernel of a container from within the container.
-    return 0 if _server_type() eq 'container';
-
-    # Partners may disable KernelCare availability via Manage2
-    return 0 if Whostmgr::Imunify360::get_kernelcare_data()->{'disabled'};
-
-    return 1;
-}
-
-sub _server_type {
-    my ($self) = @_;
-
-    my $run = Cpanel::SafeRun::Object->new_or_die(
-        program => '/usr/local/cpanel/bin/envtype',
-    );
-    chomp( my $server_type = $run->stdout );
-
-    return 'standard' if $server_type eq 'standard';
-
-    return 'container' if grep { $server_type eq $_ } qw(
-      virtuozzo
-      vzcontainer
-      virtualiron
-      lxc
-      vserver
-    );
-
-    return 'vm';
 }
 
 sub _can_load_module {
